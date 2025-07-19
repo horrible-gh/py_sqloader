@@ -46,7 +46,7 @@ db, sqloader, migrator = database_init(config)
 
 # Example usage
 query = sqloader.load_sql("user_info", "user.get_user_by_id")
-result = db.select_one(query, (123,))
+result = db.fetch_one(query, ['abc', 123])
 
 ```
 
