@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sqloader"
+version = "0.1.0"
+authors = [
+  { name="horrible", email="shinjpn1@gmail.com" },
+]
+description = "A simple and extensible SQL migration and loader utility for Python."
+readme = "README.md"
+requires-python = ">=3.7"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+keywords = [
+    "sqloader", "sql loader", "migration", "database migration",
+    "MySQL", "SQLite", "SQL migration", "schema management",
+    "json sql loader"
+]
+dependencies=['LogAssist', 'pymysql']
+
+[project.urls]
+"Homepage" = "https://github.com/horrible-gh/sqloader"
+"Bug Tracker" = "https://github.com/horrible-gh/sqloader/issues"
