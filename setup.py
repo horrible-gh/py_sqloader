@@ -2,11 +2,11 @@ from setuptools import setup, find_packages
 
 setup(
     name='sqloader',
-    version='0.1.0',
-    description='LogAssist package',
+    version='0.1.1',
+    description='py_sqloader package',
     author='horrible-gh',
     author_email='shinjpn1@gmail.com',
-    url='https://github.com/horrible-gh/LogAssist.git',
+    url='https://github.com/horrible-gh/py_sqloader.git',
     packages=find_packages(),
     classifiers=[
         'Development Status :: 3 - Alpha',

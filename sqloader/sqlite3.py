@@ -19,6 +19,7 @@ class SQLiteWrapper(DatabasePrototype):
         if self.memory_mode:
             # 인메모리: 단일 커넥션 + Lock
             self.conn = sqlite3.connect(":memory:", check_same_thread=False)
+            self.conn.row_factory = sqlite3.Row
             self.cursor = self.conn.cursor()
             # 만약 파일에서 데이터를 복사해야 한다면, 필요에 따라 아래 로직 사용
             # backup_conn = sqlite3.connect(db_name)
@@ -51,6 +52,7 @@ class SQLiteWrapper(DatabasePrototype):
         query_semaphore.acquire()
         try:
             conn = sqlite3.connect(self.db_name, check_same_thread=False)
+            conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
             try:
                 if params is None:
@@ -93,6 +95,7 @@ class SQLiteWrapper(DatabasePrototype):
             query_semaphore.acquire()
             try:
                 conn = sqlite3.connect(self.db_name, check_same_thread=False)
+                conn.row_factory = sqlite3.Row
                 cursor = conn.cursor()
                 try:
                     if params is None:
@@ -125,6 +128,7 @@ class SQLiteWrapper(DatabasePrototype):
             query_semaphore.acquire()
             try:
                 conn = sqlite3.connect(self.db_name, check_same_thread=False)
+                conn.row_factory = sqlite3.Row
                 cursor = conn.cursor()
                 try:
                     if params is None:
@@ -184,6 +188,7 @@ class SQLiteTransaction:
             wrapper.db_name,
             check_same_thread=False
         )
+        self.conn.row_factory = sqlite3.Row
         self.cursor = self.conn.cursor()
 
     def execute(self, query, params=None):
