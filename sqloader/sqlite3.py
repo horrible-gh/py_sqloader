@@ -1,6 +1,7 @@
 import sqlite3
 import threading
 from ._prototype import DatabasePrototype, Transaction, SQLITE
+from pathlib import Path
 
 query_semaphore = None
 
@@ -12,6 +13,10 @@ class SQLiteWrapper(DatabasePrototype):
     def __init__(self, db_name, memory_mode=False, max_parallel_queries=5):
         self.db_name = db_name
         self.memory_mode = memory_mode
+
+        if not memory_mode:
+            # 부모 디렉토리 자동 생성
+            Path(self.db_name).parent.mkdir(parents=True, exist_ok=True)
 
         global query_semaphore
         query_semaphore = threading.Semaphore(max_parallel_queries)
