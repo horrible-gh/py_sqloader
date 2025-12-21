@@ -58,12 +58,10 @@ class MySqlWrapper(DatabasePrototype):
             print(msg)
 
     def normalize_params(self, params):
-        """ dict 형태의 params를 list로 변환하는 유틸리티 함수 """
         if params is None:
             return None
-        if isinstance(params, dict):
-            return list(params.values())  # ✅ dict -> list 변환
-        return params  # ✅ 이미 list라면 그대로 반환
+        # dict든 list든 그대로 반환
+        return params
 
 
     def execute_query(self, query, params=None, commit=True, retry=1):
