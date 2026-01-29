@@ -1,7 +1,4 @@
-import LogAssist.log as Logger
 from . import MySqlWrapper, SQLiteWrapper, DatabaseMigrator, SQLoader
-
-
 
 def check_and_get(config, target):
     val = config.get(target, None)
@@ -29,12 +26,12 @@ def database_init(db_config):
         else :
             mysql = MySqlWrapper(host=host, user=user, password=password, db=database, log=log)
         db_instance = mysql
-        Logger.debug("MySQL initialized")
+        print("MySQL initialized")
     elif db_type == "sqlite3" or db_type == "sqlite" or db_type == "local":
         db_name = check_and_get(dbconn_info, "db_name")
         sqlite3 = SQLiteWrapper(db_name=db_name)
         db_instance = sqlite3
-        Logger.debug("SQLite3 initialized")
+        print("SQLite3 initialized")
 
 
     db_service = db_config.get("service", None)
@@ -44,21 +41,21 @@ def database_init(db_config):
         sqloader_path = db_service.get('sqloder', None)
         if sqloader_path != None:
             sqloader = SQLoader(sqloader_path)
-    Logger.debug("SQLoader initialized")
+    print("SQLoader initialized")
 
     migration_config = db_config.get('migration', None)
     migrator = None
-    Logger.debug(migration_config)
+    print(migration_config)
 
     if migration_config != None:
         try:
             migration_path = check_and_get(migration_config, 'migration_path')
             auto_migration = migration_config.get("auto_migration", False)
 
-            Logger.debug("Starting Database Migrator")
+            print("Starting Database Migrator")
             migrator = DatabaseMigrator(
                 db_instance, migration_path, auto_migration)
-            Logger.debug("Database Migration Successfully")
+            print("Database Migration Successfully")
         except Exception as e:
             Logger.error(f"Database Migration Failed.{e}")
             exit(1)
