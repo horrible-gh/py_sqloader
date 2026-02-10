@@ -1,4 +1,4 @@
-from . import MySqlWrapper, SQLiteWrapper, DatabaseMigrator, SQLoader
+from . import MySqlWrapper, SQLiteWrapper, PostgreSQLWrapper, DatabaseMigrator, SQLoader
 
 def check_and_get(config, target):
     val = config.get(target, None)
@@ -27,6 +27,21 @@ def database_init(db_config):
             mysql = MySqlWrapper(host=host, user=user, password=password, db=database, log=log)
         db_instance = mysql
         print("MySQL initialized")
+    elif db_type == "postgresql" or db_type == "postgres":
+        host = check_and_get(dbconn_info, "host")
+        user = check_and_get(dbconn_info, "user")
+        password = check_and_get(dbconn_info, "password")
+        database = check_and_get(dbconn_info, "database")
+        port = dbconn_info.get("port", 5432)
+        log = dbconn_info.get("log", False)
+        max_parallel_queries = dbconn_info.get("max_parallel_queries", 5)
+
+        pg = PostgreSQLWrapper(
+            host=host, user=user, password=password, database=database,
+            port=port, log=log, max_parallel_queries=max_parallel_queries
+        )
+        db_instance = pg
+        print("PostgreSQL initialized")
     elif db_type == "sqlite3" or db_type == "sqlite" or db_type == "local":
         db_name = check_and_get(dbconn_info, "db_name")
         sqlite3 = SQLiteWrapper(db_name=db_name)
@@ -43,7 +58,7 @@ def database_init(db_config):
             # db_instance의 db_type과 placeholder 설정을 전달
             placeholder = db_config.get('placeholder', None)
             sq_db_type = db_instance.db_type if db_instance else None
-            sqloader = SQLoader(sqloader_path, db_type=sq_db_type, placeholder=placeholder)
+            sqloader = SQLoader(sqloader_path, db_type=sq_db_type, placeholder=placeholder, db=db_instance)
     print("SQLoader initialized")
 
     migration_config = db_config.get('migration', None)

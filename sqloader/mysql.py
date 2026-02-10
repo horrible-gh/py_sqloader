@@ -24,9 +24,7 @@ class MySqlWrapper(DatabasePrototype):
         global query_semaphore
         query_semaphore = threading.Semaphore(max_parallel_queries)
 
-        # 기존 self.conn, self.cursor를 제거하거나 사용 안 함
-        # connect()와 keep_alive()는 사실상 필요 없어질 수 있음
-        # 하지만 혹시 모를 호환을 위해 그대로 둠
+        # Kept for backwards compatibility; not used in execute_query
         self.connect()
 
         if keep_alive_interval > 0:
@@ -35,7 +33,7 @@ class MySqlWrapper(DatabasePrototype):
             self.keep_alive_thread.start()
 
     def connect(self):
-        """기존 코드 호환을 위해 남겨둠, 하지만 execute_query에는 사용하지 않음."""
+        """Kept for backwards compatibility; execute_query opens its own connection."""
         self.conn = pymysql.connect(
             host=self.host,
             user=self.user,
@@ -47,7 +45,7 @@ class MySqlWrapper(DatabasePrototype):
         self.cursor = self.conn.cursor()
 
     def reconnect(self):
-        """호환 유지. 다만 '매번 새 커넥션' 방식에서는 큰 의미가 없어집니다."""
+        """Kept for backwards compatibility; less meaningful with per-query connections."""
         try:
             self.conn.ping(reconnect=True)
         except:
@@ -60,12 +58,12 @@ class MySqlWrapper(DatabasePrototype):
     def normalize_params(self, params):
         if params is None:
             return None
-        # dict든 list든 그대로 반환
+        # Return as-is whether dict or list
         return params
 
 
     def execute_query(self, query, params=None, commit=True, retry=1):
-        # 세마포어로 동시 실행 쿼리 수 제한
+        # Limit concurrent queries with semaphore
         query_semaphore.acquire()
         try:
             conn = pymysql.connect(
@@ -84,7 +82,6 @@ class MySqlWrapper(DatabasePrototype):
                     else:
                         self.log(query)
                         self.log(params)
-                        # 파라미터가 dict면 리스트로 변환하는 처리
                         params = self.normalize_params(params)
                         result = cursor.execute(query, params)
 
@@ -95,12 +92,12 @@ class MySqlWrapper(DatabasePrototype):
             except pymysql.MySQLError as e:
                 print(f"Error executing query: {e}")
                 print(f"Last query: {query}")
-                # rollback 시도
+                # Attempt rollback
                 try:
                     conn.rollback()
                 except Exception as ex:
                     print(f"Rollback failed: {ex}")
-                # 세션 끊김(2006) 에러 발생 시 재시도
+                # Retry on lost connection (error 2006)
                 if e.args[0] == 2006 and retry > 0:
                     print("MySQL server has gone away. Reconnecting and retrying query...")
                     conn.close()
@@ -116,11 +113,9 @@ class MySqlWrapper(DatabasePrototype):
             query_semaphore.release()
 
 
-    # execute()도 동일하게 수정
     def execute(self, query, params=None, commit=True):
         return self.execute_query(query, params, commit)
 
-    # fetch_all, fetch_one도 동일한 패턴으로 새 커넥션 쓰도록
     def fetch_all(self, query, params=None):
         query_semaphore.acquire()
         try:
@@ -133,7 +128,6 @@ class MySqlWrapper(DatabasePrototype):
                 cursorclass=DictCursor
             )
             with conn.cursor(DictCursor) as cursor:
-                # 파라미터가 dict면 리스트로 변환하는 처리
                 params = self.normalize_params(params)
                 if params is None:
                     self.log(query)
@@ -147,7 +141,7 @@ class MySqlWrapper(DatabasePrototype):
             print(f"Error fetching data: {e}")
             print(f"Last query: {query}")
             if e.args[0] == 2006:
-                pass  # 재시도 로직 가능
+                pass  # retry logic possible
             raise e
         finally:
             try:
@@ -168,7 +162,6 @@ class MySqlWrapper(DatabasePrototype):
                 cursorclass=DictCursor
             )
             with conn.cursor(DictCursor) as cursor:
-                # 파라미터가 dict면 리스트로 변환하는 처리
                 params = self.normalize_params(params)
                 if params is None:
                     self.log(query)
@@ -181,9 +174,8 @@ class MySqlWrapper(DatabasePrototype):
         except pymysql.MySQLError as e:
             print(f"Error fetching data: {e}")
             print(f"Last query: {query}")
-
             if e.args[0] == 2006:
-                pass  # 재시도 로직 가능
+                pass  # retry logic possible
             raise e
         finally:
             try:
@@ -193,14 +185,14 @@ class MySqlWrapper(DatabasePrototype):
             query_semaphore.release()
 
     def commit(self):
-        # 더 이상 self.conn을 쓰지 않으므로 의미가 없을 수 있음
+        # No persistent connection; no-op
         pass
 
     def rollback(self):
         pass
 
     def close(self):
-        # 기존 self.cursor, self.conn 닫아두기 (호환성)
+        # Close the compatibility connection if it exists
         if hasattr(self, 'cursor') and self.cursor:
             self.cursor.close()
         if hasattr(self, 'conn') and self.conn:
@@ -219,9 +211,8 @@ class MySqlWrapper(DatabasePrototype):
 
     def keep_alive(self):
         """
-        원래는 self.conn에 주기적으로 ping을 보내는 로직.
-        매번 새 커넥션을 쓰는 구조라면 필요 없어질 수 있음.
-        일단 기존 코드 유지, 실제로는 큰 효과가 없을 것.
+        Periodically pings the compatibility connection.
+        Has little effect in the per-query connection model.
         """
         while True:
             sleep(self.keep_alive_interval)
@@ -235,11 +226,7 @@ class MySqlWrapper(DatabasePrototype):
                     self.reconnect()
 
     def begin_transaction(self):
-        """
-        트랜잭션 컨텍스트를 생성하여 반환.
-        트랜잭션 내에서는 동일한 커넥션을 사용하므로,
-        여러 쿼리를 하나의 트랜잭션으로 묶을 수 있습니다.
-        """
+        """Returns a transaction context manager backed by a dedicated connection."""
         return MySqlTransaction(self)
 
 class MySqlTransaction(Transaction):
@@ -275,10 +262,10 @@ class MySqlTransaction(Transaction):
         self.conn.close()
 
     def __enter__(self):
-        return self  # Transaction 객체를 반환
+        return self
 
     def __exit__(self, exc_type, exc_val, traceback):
-        # 예외 발생 시 rollback, 그렇지 않으면 commit
+        # Rollback on exception, commit otherwise
         if exc_type:
             self.rollback()
         else:

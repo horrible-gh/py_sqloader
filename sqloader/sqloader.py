@@ -5,20 +5,25 @@ from ._prototype import NATIVE_PLACEHOLDER
 
 class SQLoader:
 
-    def __init__(self, dir, db_type=None, placeholder=None) -> None:
+    def __init__(self, dir, db_type=None, placeholder=None, db=None) -> None:
         self.sql_dir = dir
         self.db_type = db_type
         self.placeholder = self._parse_placeholder(placeholder)
+        self.db = db
+
+    def set_db(self, db):
+        """Inject a database instance after construction."""
+        self.db = db
 
     def _parse_placeholder(self, placeholder):
         """
-        placeholder 설정을 파싱하여 리스트로 반환.
+        Parse the placeholder setting into a list.
 
-        지원 형식:
-            - None: 변환 안 함
-            - str 싱글: "%s" → ["%s"]
-            - str 콤마 구분: "?,%s" → ["?", "%s"]
-            - list: ["?", "%s"] → 그대로
+        Supported formats:
+            - None:              no conversion
+            - single str:        "%s"   -> ["%s"]
+            - comma-separated:   "?,%s" -> ["?", "%s"]
+            - list:              ["?", "%s"] -> returned as-is
         """
         if placeholder is None:
             return None
@@ -36,7 +41,7 @@ class SQLoader:
 
     def _convert_placeholder(self, query):
         """
-        쿼리 문자열의 플레이스홀더를 DB 네이티브로 변환.
+        Replace generic placeholders in the query string with the DB-native placeholder.
         """
         if not self.placeholder or not self.db_type:
             return query
@@ -93,3 +98,24 @@ class SQLoader:
             query = self.read_sql_file(query_file_path, encode)
 
         return self._convert_placeholder(query)
+
+    def _require_db(self):
+        if self.db is None:
+            raise RuntimeError(
+                "No database instance attached. Pass db= to SQLoader() or call set_db() first."
+            )
+
+    def execute(self, file: str, query_name: str, params=None):
+        self._require_db()
+        sql = self.load_sql(file, query_name)
+        return self.db.execute(sql, params)
+
+    def fetch_one(self, file: str, query_name: str, params=None):
+        self._require_db()
+        sql = self.load_sql(file, query_name)
+        return self.db.fetch_one(sql, params)
+
+    def fetch_all(self, file: str, query_name: str, params=None):
+        self._require_db()
+        sql = self.load_sql(file, query_name)
+        return self.db.fetch_all(sql, params)

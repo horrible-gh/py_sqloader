@@ -23,6 +23,7 @@ setup(
     python_requires='>=3.6',
     install_requires=[
         "LogAssist>=1.1.1",
-        "pymysql>=1.1.1"
+        "pymysql>=1.1.1",
+        "psycopg2-binary>=2.9.0"
     ],
 )

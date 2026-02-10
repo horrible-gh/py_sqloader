@@ -15,29 +15,28 @@ class SQLiteWrapper(DatabasePrototype):
         self.memory_mode = memory_mode
 
         if not memory_mode:
-            # 부모 디렉토리 자동 생성
+            # Auto-create parent directories for the database file
             Path(self.db_name).parent.mkdir(parents=True, exist_ok=True)
 
         global query_semaphore
         query_semaphore = threading.Semaphore(max_parallel_queries)
 
         if self.memory_mode:
-            # 인메모리: 단일 커넥션 + Lock
+            # In-memory mode: single persistent connection + Lock (serialized access)
             self.conn = sqlite3.connect(":memory:", check_same_thread=False)
             self.conn.row_factory = sqlite3.Row
             self.cursor = self.conn.cursor()
-            # 만약 파일에서 데이터를 복사해야 한다면, 필요에 따라 아래 로직 사용
+            # To restore from a file, use:
             # backup_conn = sqlite3.connect(db_name)
             # backup_conn.backup(self.conn)
             # backup_conn.close()
         else:
-            # 파일 모드: 나중에 세마포어 방식으로 새 커넥션을 여므로,
-            # 여기서 굳이 conn/cursor를 만들지 않아도 됩니다.
+            # File mode: new connection per query via semaphore; no persistent conn needed
             self.conn = None
             self.cursor = None
 
     def _execute_memory(self, query, params=None, commit=True):
-        """인메모리 모드 - 단일 커넥션 + Lock(직렬화)."""
+        """In-memory mode: single connection + Lock (serialized)."""
         with db_lock:
             try:
                 if params is None:
@@ -53,7 +52,7 @@ class SQLiteWrapper(DatabasePrototype):
                 raise e
 
     def _execute_file(self, query, params=None, commit=True):
-        """파일 모드 - 세마포어 + 새 커넥션(병렬 제한)."""
+        """File mode: semaphore + new connection per query (limited parallelism)."""
         query_semaphore.acquire()
         try:
             conn = sqlite3.connect(self.db_name, check_same_thread=False)
@@ -96,7 +95,7 @@ class SQLiteWrapper(DatabasePrototype):
                     print(f"Error fetching data (memory mode, fetch_one): {e}")
                     raise e
         else:
-            # 파일 모드: 별도 새 커넥션으로 fetch
+            # File mode: open a new connection for the fetch
             query_semaphore.acquire()
             try:
                 conn = sqlite3.connect(self.db_name, check_same_thread=False)
@@ -155,8 +154,7 @@ class SQLiteWrapper(DatabasePrototype):
             with db_lock:
                 self.conn.rollback()
         else:
-            # 파일 모드는 매번 새 커넥션을 쓰므로
-            # rollback할 '지속 커넥션'이 없습니다
+            # File mode uses per-query connections; no persistent connection to rollback
             pass
 
     def commit(self):
@@ -164,7 +162,7 @@ class SQLiteWrapper(DatabasePrototype):
             with db_lock:
                 self.conn.commit()
         else:
-            # 파일 모드는 매번 새 커넥션이므로 여기서 commit할 일이 없음
+            # File mode uses per-query connections; commit is handled inside each call
             pass
 
     def close(self):
@@ -173,16 +171,12 @@ class SQLiteWrapper(DatabasePrototype):
                 self.cursor.close()
                 self.conn.close()
         else:
-            # 파일모드에선 conn이 따로 없으니 무처리
+            # File mode has no persistent connection to close
             pass
 
 
     def begin_transaction(self):
-        """
-        트랜잭션 컨텍스트를 생성하여 반환.
-        트랜잭션 내에서는 동일한 커넥션을 사용하므로,
-        여러 쿼리를 하나의 트랜잭션으로 묶을 수 있습니다.
-        """
+        """Returns a transaction context manager backed by a dedicated connection."""
         return SQLiteTransaction(self)
 
 
@@ -218,9 +212,10 @@ class SQLiteTransaction:
         self.conn.close()
 
     def __enter__(self):
-        return self  # 컨텍스트 매니저 지원
+        return self
 
     def __exit__(self, exc_type, exc_val, traceback):
+        # Rollback on exception, commit otherwise
         if exc_type:
             self.rollback()
         else:

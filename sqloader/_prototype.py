@@ -2,11 +2,13 @@ import os
 
 SQLITE = 1
 MYSQL = 2
+POSTGRESQL = 3
 
-# DB별 네이티브 플레이스홀더
+# Native placeholder per database type
 NATIVE_PLACEHOLDER = {
     MYSQL: "%s",
     SQLITE: "?",
+    POSTGRESQL: "%s",
 }
 
 
