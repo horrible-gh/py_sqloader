@@ -5,15 +5,20 @@ from ._prototype import NATIVE_PLACEHOLDER
 
 class SQLoader:
 
-    def __init__(self, dir, db_type=None, placeholder=None, db=None) -> None:
+    def __init__(self, dir, db_type=None, placeholder=None, db=None, async_db=None) -> None:
         self.sql_dir = dir
         self.db_type = db_type
         self.placeholder = self._parse_placeholder(placeholder)
         self.db = db
+        self.async_db = async_db
 
     def set_db(self, db):
-        """Inject a database instance after construction."""
+        """Inject a synchronous database instance after construction."""
         self.db = db
+
+    def set_async_db(self, async_db):
+        """Inject an async database instance after construction."""
+        self.async_db = async_db
 
     def _parse_placeholder(self, placeholder):
         """
@@ -105,6 +110,13 @@ class SQLoader:
                 "No database instance attached. Pass db= to SQLoader() or call set_db() first."
             )
 
+    def _require_async_db(self):
+        if self.async_db is None:
+            raise RuntimeError(
+                "No async database instance attached. "
+                "Pass async_db= to SQLoader() or call set_async_db() first."
+            )
+
     def execute(self, file: str, query_name: str, params=None):
         self._require_db()
         sql = self.load_sql(file, query_name)
@@ -119,3 +131,18 @@ class SQLoader:
         self._require_db()
         sql = self.load_sql(file, query_name)
         return self.db.fetch_all(sql, params)
+
+    async def async_execute(self, file: str, query_name: str, params=None):
+        self._require_async_db()
+        sql = self.load_sql(file, query_name)
+        return await self.async_db.execute(sql, params)
+
+    async def async_fetch_one(self, file: str, query_name: str, params=None):
+        self._require_async_db()
+        sql = self.load_sql(file, query_name)
+        return await self.async_db.fetch_one(sql, params)
+
+    async def async_fetch_all(self, file: str, query_name: str, params=None):
+        self._require_async_db()
+        sql = self.load_sql(file, query_name)
+        return await self.async_db.fetch_all(sql, params)

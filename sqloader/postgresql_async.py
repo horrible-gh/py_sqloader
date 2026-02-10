@@ -157,7 +157,6 @@ class AsyncPostgreSQLWrapper(AsyncDatabasePrototype):
         """Close the connection pool and wait for all connections to be released."""
         if self.pool:
             await self.pool.close()
-            await self.pool.wait_closed()
 
     def begin_transaction(self):
         """Return an async transaction context manager.

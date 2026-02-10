@@ -22,8 +22,10 @@ setup(
     ],
     python_requires='>=3.6',
     install_requires=[
-        "LogAssist>=1.1.1",
         "pymysql>=1.1.1",
-        "psycopg2-binary>=2.9.0"
+        "psycopg2-binary>=2.9.0",
+        "asyncpg>=0.27.0",
+        "aiomysql>=0.2.0",
+        "aiosqlite>=0.19.0",
     ],
 )
