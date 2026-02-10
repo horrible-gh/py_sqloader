@@ -19,6 +19,8 @@ pip install sqloader
 - Integrated execution: `sqloader.execute()`, `sqloader.fetch_one()`, `sqloader.fetch_all()`
 - Thread-safe connection pooling (Semaphore + psycopg2 SimpleConnectionPool)
 - Transaction context manager with automatic commit / rollback
+- Async support: `asyncpg`, `aiomysql`, `aiosqlite`
+- Async integrated execution: `await sqloader.async_execute()`, `await sqloader.async_fetchone()`, `await sqloader.async_fetchall()`
 
 ---
 
@@ -104,6 +106,68 @@ db, sq, migrator = database_init(config)
 
 ---
 
+## Async Usage
+
+### Async PostgreSQL (FastAPI example)
+```python
+from sqloader.init import async_database_init
+
+config = {
+    "type": "postgresql",
+    "postgresql": {
+        "host": "localhost",
+        "port": 5432,
+        "user": "postgres",
+        "password": "pass",
+        "database": "mydb",
+        "max_size": 10
+    },
+    "service": {
+        "sqloder": "res/sql/sqloader/postgresql"
+    },
+}
+
+db, sq = await async_database_init(config)
+
+# Integrated async usage
+result = await sq.async_fetchone("user", "get_user_by_id", [123])
+rows   = await sq.async_fetchall("user", "get_all")
+await sq.async_execute("user", "update_name", ["Alice", 123])
+
+# Direct wrapper usage
+result = await db.fetchone("SELECT * FROM users WHERE id = $1", [123])
+```
+
+### Async MySQL
+```python
+config = {
+    "type": "mysql",
+    "mysql": {
+        "host": "localhost",
+        "port": 3306,
+        "user": "root",
+        "password": "pass",
+        "database": "mydb"
+    },
+    "service": {
+        "sqloder": "res/sql/sqloader/mysql"
+    },
+}
+
+db, sq = await async_database_init(config)
+result = await sq.async_fetchone("user", "get_user_by_id", [123])
+```
+
+### Async Transaction
+```python
+async with db.begin_transaction() as txn:
+    await txn.execute("INSERT INTO users (name) VALUES (%s)", ["Alice"])
+    await txn.execute("UPDATE stats SET count = count + 1")
+```
+
+---
+
+
 ## SQL Loading Behavior
 
 If a value in the `.json` file ends with `.sql`, the referenced file is loaded from the same directory.
@@ -176,6 +240,9 @@ sq.set_db(db)
 
 | Package | Purpose |
 |---------|---------|
-| `pymysql >= 1.1.1` | MySQL connectivity |
-| `psycopg2-binary >= 2.9.0` | PostgreSQL connectivity |
-| `sqlite3` | SQLite (Python standard library) |
+| `pymysql >= 1.1.1` | MySQL (sync) |
+| `psycopg2-binary >= 2.9.0` | PostgreSQL (sync) |
+| `sqlite3` | SQLite sync (Python standard library) |
+| `aiomysql >= 0.2.0` | MySQL (async) |
+| `asyncpg >= 0.29.0` | PostgreSQL (async) |
+| `aiosqlite >= 0.20.0` | SQLite (async) |
