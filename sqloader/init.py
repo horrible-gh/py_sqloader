@@ -40,7 +40,10 @@ def database_init(db_config):
     if db_service != None:
         sqloader_path = db_service.get('sqloder', None)
         if sqloader_path != None:
-            sqloader = SQLoader(sqloader_path)
+            # db_instance의 db_type과 placeholder 설정을 전달
+            placeholder = db_config.get('placeholder', None)
+            sq_db_type = db_instance.db_type if db_instance else None
+            sqloader = SQLoader(sqloader_path, db_type=sq_db_type, placeholder=placeholder)
     print("SQLoader initialized")
 
     migration_config = db_config.get('migration', None)
@@ -57,10 +60,7 @@ def database_init(db_config):
                 db_instance, migration_path, auto_migration)
             print("Database Migration Successfully")
         except Exception as e:
-            Logger.error(f"Database Migration Failed.{e}")
+            print(f"Database Migration Failed.{e}")
             exit(1)
 
     return db_instance, sqloader, migrator
-
-
-

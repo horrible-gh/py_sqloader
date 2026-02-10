@@ -3,6 +3,12 @@ import os
 SQLITE = 1
 MYSQL = 2
 
+# DB별 네이티브 플레이스홀더
+NATIVE_PLACEHOLDER = {
+    MYSQL: "%s",
+    SQLITE: "?",
+}
+
 
 class DatabasePrototype:
     db_type = ""
@@ -72,6 +78,8 @@ class DatabasePrototype:
 
     def begin_transaction(self):
         pass
+
+
 class Transaction:
     def __init__(self, wrapper):
         pass

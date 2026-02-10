@@ -26,6 +26,7 @@ from sqloader.init import database_init
 
 config = {
     "type": "mysql",
+    "placeholder": ["?", "%s"],
     "mysql": {
         "host": "localhost",
         "port": 3306,
