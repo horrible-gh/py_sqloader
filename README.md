@@ -21,6 +21,7 @@ pip install sqloader
 - Transaction context manager with automatic commit / rollback
 - Async support: `asyncpg`, `aiomysql`, `aiosqlite`
 - Async integrated execution: `await sqloader.async_execute()`, `await sqloader.async_fetchone()`, `await sqloader.async_fetchall()`
+- **Query file sync**: copy `.json`/`.sql` files between DB directories (`sync()`, `sync_from` config, CLI)
 
 ---
 
@@ -217,6 +218,79 @@ res/sql/migration/
 ```
 
 Set `auto_migration: True` to apply pending migrations automatically during `database_init()`.
+
+---
+
+## Query File Sync
+
+Copy `.json` and `.sql` query files from one DB directory to another. Useful when you want to
+share a base set of queries across multiple database backends.
+
+### Directory structure
+
+```
+res/sql/sqloader/
+├── sqlite3/
+│   ├── user.json
+│   ├── shared_link.json
+│   └── sub/
+│       └── detail.json
+├── mysql/
+│   └── user.json          ← already exists
+└── postgresql/             ← empty
+```
+
+### Manual call
+
+```python
+sq = SQLoader("res/sql/sqloader")
+
+# Copy sqlite3 → mysql (skip existing files)
+result = sq.sync("sqlite3", "mysql")
+# {"copied": ["shared_link.json", "sub\\detail.json"], "skipped": ["user.json"]}
+
+# Copy sqlite3 → postgresql (overwrite existing files)
+result = sq.sync("sqlite3", "postgresql", overwrite=True)
+```
+
+### Config-based auto sync (`database_init`)
+
+Add `sync_from` to your config. The sync runs automatically before migration.
+
+```python
+config = {
+    "type": "mysql",
+    "sync_from": "sqlite3",   # sqlite3 → mysql on every init
+    "mysql": { "host": "localhost", ... },
+    "service": { "sqloder": "res/sql/sqloader" },
+}
+
+db, sq, migrator = database_init(config)
+# Sync complete: 2 copied, 1 skipped
+```
+
+### CLI
+
+```bash
+# Basic sync
+python -m sqloader sync --from sqlite3 --to mysql
+
+# With custom path
+python -m sqloader sync --from sqlite3 --to mysql --path res/sql/sqloader
+
+# Overwrite existing files
+python -m sqloader sync --from sqlite3 --to postgresql --overwrite --path res/sql/sqloader
+```
+
+Output:
+```
+Synced sqlite3 -> mysql
+Copied: 2 files
+  - shared_link.json
+  - sub\detail.json
+Skipped: 1 files
+  - user.json
+```
 
 ---
 

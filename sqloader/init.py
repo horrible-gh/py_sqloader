@@ -66,6 +66,11 @@ def database_init(db_config):
             sqloader = SQLoader(sqloader_path, db_type=sq_db_type, placeholder=placeholder, db=db_instance)
     print("SQLoader initialized")
 
+    sync_from = db_config.get("sync_from", None)
+    if sync_from is not None and sqloader is not None:
+        result = sqloader.sync(sync_from, db_type)
+        print(f"Sync complete: {len(result['copied'])} copied, {len(result['skipped'])} skipped")
+
     migration_config = db_config.get('migration', None)
     migrator = None
     print(migration_config)
@@ -162,6 +167,11 @@ async def async_database_init(db_config):
             sqloader = SQLoader(sqloader_path, db_type=sq_db_type,
                                 placeholder=placeholder, async_db=db_instance)
     print("SQLoader initialized")
+
+    sync_from = db_config.get("sync_from", None)
+    if sync_from is not None and sqloader is not None:
+        result = sqloader.sync(sync_from, db_type)
+        print(f"Sync complete: {len(result['copied'])} copied, {len(result['skipped'])} skipped")
 
     migration_config = db_config.get("migration", None)
     migrator = None

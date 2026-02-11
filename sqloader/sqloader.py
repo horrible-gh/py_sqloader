@@ -1,5 +1,6 @@
 import json
 import os
+import shutil
 from ._prototype import NATIVE_PLACEHOLDER
 
 
@@ -146,3 +147,40 @@ class SQLoader:
         self._require_async_db()
         sql = self.load_sql(file, query_name)
         return await self.async_db.fetch_all(sql, params)
+
+    def sync(self, from_db: str, to_db: str, overwrite: bool = False):
+        """
+        Copy query files from the from_db directory to the to_db directory.
+
+        :param from_db: Source DB type ("sqlite3", "mysql", "postgresql")
+        :param to_db: Target DB type
+        :param overwrite: If True, overwrite existing files; if False, skip them (default: False)
+        :return: { "copied": [...], "skipped": [...] }
+        """
+        from_dir = os.path.join(self.sql_dir, from_db)
+        to_dir = os.path.join(self.sql_dir, to_db)
+
+        if not os.path.isdir(from_dir):
+            raise FileNotFoundError(f"Source directory not found: {from_dir}")
+
+        copied = []
+        skipped = []
+
+        for root, _, files in os.walk(from_dir):
+            for filename in files:
+                if not filename.endswith((".json", ".sql")):
+                    continue
+
+                src_path = os.path.join(root, filename)
+                rel_path = os.path.relpath(src_path, from_dir)
+                dst_path = os.path.join(to_dir, rel_path)
+
+                if os.path.isfile(dst_path) and not overwrite:
+                    skipped.append(rel_path)
+                    continue
+
+                os.makedirs(os.path.dirname(dst_path), exist_ok=True)
+                shutil.copy2(src_path, dst_path)
+                copied.append(rel_path)
+
+        return {"copied": copied, "skipped": skipped}
