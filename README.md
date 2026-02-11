@@ -7,8 +7,24 @@ Supports MySQL, PostgreSQL, and SQLite with clean integration for any Python bac
 
 ## Installation
 
-```powershell
+```bash
+# Basic installation (MySQL sync only)
 pip install sqloader
+
+# With PostgreSQL support
+pip install sqloader[postgresql]
+
+# With async MySQL support
+pip install sqloader[async-mysql]
+
+# With async PostgreSQL support
+pip install sqloader[async-postgresql]
+
+# With async SQLite support
+pip install sqloader[async-sqlite]
+
+# Install all optional dependencies
+pip install sqloader[all]
 ```
 
 ## Features
@@ -312,11 +328,18 @@ sq.set_db(db)
 
 ## Dependencies
 
+### Required
 | Package | Purpose |
 |---------|---------|
 | `pymysql >= 1.1.1` | MySQL (sync) |
-| `psycopg2-binary >= 2.9.0` | PostgreSQL (sync) |
 | `sqlite3` | SQLite sync (Python standard library) |
-| `aiomysql >= 0.2.0` | MySQL (async) |
-| `asyncpg >= 0.29.0` | PostgreSQL (async) |
-| `aiosqlite >= 0.20.0` | SQLite (async) |
+
+### Optional
+Install only what you need:
+
+| Package | Purpose | Install with |
+|---------|---------|--------------|
+| `psycopg2-binary >= 2.9.0` | PostgreSQL (sync) | `pip install sqloader[postgresql]` |
+| `aiomysql >= 0.2.0` | MySQL (async) | `pip install sqloader[async-mysql]` |
+| `asyncpg >= 0.29.0` | PostgreSQL (async) | `pip install sqloader[async-postgresql]` |
+| `aiosqlite >= 0.20.0` | SQLite (async) | `pip install sqloader[async-sqlite]` |

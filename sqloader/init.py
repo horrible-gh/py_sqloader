@@ -34,6 +34,11 @@ def database_init(db_config):
         db_instance = mysql
         print("MySQL initialized")
     elif db_type == "postgresql" or db_type == "postgres":
+        if PostgreSQLWrapper is None:
+            raise ImportError(
+                "PostgreSQL support requires psycopg2. "
+                "Install it with: pip install psycopg2-binary"
+            )
         host = check_and_get(dbconn_info, "host")
         user = check_and_get(dbconn_info, "user")
         password = check_and_get(dbconn_info, "password")
@@ -118,6 +123,11 @@ async def async_database_init(db_config):
     dbconn_info = db_config[db_type]
 
     if db_type == "mysql":
+        if AsyncMySqlWrapper is None:
+            raise ImportError(
+                "Async MySQL support requires aiomysql. "
+                "Install it with: pip install aiomysql"
+            )
         host = check_and_get(dbconn_info, "host")
         user = check_and_get(dbconn_info, "user")
         password = check_and_get(dbconn_info, "password")
@@ -132,6 +142,11 @@ async def async_database_init(db_config):
         )
         print("Async MySQL initialized")
     elif db_type == "postgresql" or db_type == "postgres":
+        if AsyncPostgreSQLWrapper is None:
+            raise ImportError(
+                "Async PostgreSQL support requires asyncpg. "
+                "Install it with: pip install asyncpg"
+            )
         host = check_and_get(dbconn_info, "host")
         user = check_and_get(dbconn_info, "user")
         password = check_and_get(dbconn_info, "password")
@@ -146,6 +161,11 @@ async def async_database_init(db_config):
         )
         print("Async PostgreSQL initialized")
     elif db_type == "sqlite3" or db_type == "sqlite" or db_type == "local":
+        if AsyncSQLiteWrapper is None:
+            raise ImportError(
+                "Async SQLite support requires aiosqlite. "
+                "Install it with: pip install aiosqlite"
+            )
         db_name = check_and_get(dbconn_info, "db_name")
         memory_mode = dbconn_info.get("memory_mode", False)
         log = dbconn_info.get("log", False)

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "sqloader"
-version = "0.2.2"
+version = "0.2.3"
 authors = [
   { name="horrible", email="shinjpn1@gmail.com" },
 ]
@@ -21,7 +21,19 @@ keywords = [
     "MySQL", "SQLite", "SQL migration", "schema management",
     "json sql loader"
 ]
-dependencies=['LogAssist', 'pymysql']
+dependencies=['LogAssist', 'pymysql>=1.1.1']
+
+[project.optional-dependencies]
+postgresql = ["psycopg2-binary>=2.9.0"]
+async-mysql = ["aiomysql>=0.2.0"]
+async-postgresql = ["asyncpg>=0.27.0"]
+async-sqlite = ["aiosqlite>=0.19.0"]
+all = [
+    "psycopg2-binary>=2.9.0",
+    "aiomysql>=0.2.0",
+    "asyncpg>=0.27.0",
+    "aiosqlite>=0.19.0",
+]
 
 [project.urls]
 "Homepage" = "https://github.com/horrible-gh/py_sqloader"
