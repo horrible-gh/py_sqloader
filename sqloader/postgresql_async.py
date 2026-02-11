@@ -102,12 +102,18 @@ class AsyncPostgreSQLWrapper(AsyncDatabasePrototype):
         """
         q = _to_asyncpg_query(query)
         self._log(q)
-        args = list(params) if params is not None else []
-        if args:
-            self._log(args)
+        if params is not None:
+            self._log(params)
         try:
             async with self.pool.acquire() as conn:
-                return await conn.execute(q, *args)
+                if params is None:
+                    return await conn.execute(q)
+                elif isinstance(params, (list, tuple)):
+                    return await conn.execute(q, *params)
+                else:
+                    # Dict or other types: asyncpg doesn't support named params,
+                    # so this will raise TypeError - which is correct behavior
+                    return await conn.execute(q, params)
         except asyncpg.PostgresError as e:
             print(f"Error executing query: {e}")
             print(f"Last query: {q}")
@@ -117,12 +123,16 @@ class AsyncPostgreSQLWrapper(AsyncDatabasePrototype):
         """Fetch a single row as a dict, or None if no row matches."""
         q = _to_asyncpg_query(query)
         self._log(q)
-        args = list(params) if params is not None else []
-        if args:
-            self._log(args)
+        if params is not None:
+            self._log(params)
         try:
             async with self.pool.acquire() as conn:
-                record = await conn.fetchrow(q, *args)
+                if params is None:
+                    record = await conn.fetchrow(q)
+                elif isinstance(params, (list, tuple)):
+                    record = await conn.fetchrow(q, *params)
+                else:
+                    record = await conn.fetchrow(q, params)
                 return dict(record) if record is not None else None
         except asyncpg.PostgresError as e:
             print(f"Error fetching data: {e}")
@@ -133,12 +143,16 @@ class AsyncPostgreSQLWrapper(AsyncDatabasePrototype):
         """Fetch all matching rows as a list of dicts."""
         q = _to_asyncpg_query(query)
         self._log(q)
-        args = list(params) if params is not None else []
-        if args:
-            self._log(args)
+        if params is not None:
+            self._log(params)
         try:
             async with self.pool.acquire() as conn:
-                records = await conn.fetch(q, *args)
+                if params is None:
+                    records = await conn.fetch(q)
+                elif isinstance(params, (list, tuple)):
+                    records = await conn.fetch(q, *params)
+                else:
+                    records = await conn.fetch(q, params)
                 return [dict(r) for r in records]
         except asyncpg.PostgresError as e:
             print(f"Error fetching data: {e}")
@@ -210,14 +224,23 @@ class AsyncPostgreSQLTransaction(AsyncTransaction):
         fetchone() / fetchall().  For write queries the results list is cleared.
         """
         q = _to_asyncpg_query(query)
-        args = list(params) if params is not None else []
 
         stripped = q.strip().upper()
         if stripped.startswith("SELECT") or stripped.startswith("WITH"):
-            records = await self._conn.fetch(q, *args)
+            if params is None:
+                records = await self._conn.fetch(q)
+            elif isinstance(params, (list, tuple)):
+                records = await self._conn.fetch(q, *params)
+            else:
+                records = await self._conn.fetch(q, params)
             self._last_results = [dict(r) for r in records]
         else:
-            await self._conn.execute(q, *args)
+            if params is None:
+                await self._conn.execute(q)
+            elif isinstance(params, (list, tuple)):
+                await self._conn.execute(q, *params)
+            else:
+                await self._conn.execute(q, params)
             self._last_results = []
 
         return self._last_results
