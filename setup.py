@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='sqloader',
-    version='0.2.3',
+    version='0.2.4',
     description='py_sqloader package',
     author='horrible-gh',
     author_email='shinjpn1@gmail.com',
