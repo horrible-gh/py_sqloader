@@ -47,10 +47,17 @@ def database_init(db_config):
         log = dbconn_info.get("log", False)
         max_parallel_queries = dbconn_info.get("max_parallel_queries", 5)
 
-        pg = PostgreSQLWrapper(
-            host=host, user=user, password=password, database=database,
-            port=port, log=log, max_parallel_queries=max_parallel_queries
-        )
+        if port != None:
+            pg = PostgreSQLWrapper(
+                host=host, user=user, password=password, database=database,
+                port=port, log=log, max_parallel_queries=max_parallel_queries
+            )
+        else:
+            pg = PostgreSQLWrapper(
+                host=host, user=user, password=password, database=database,
+                log=log, max_parallel_queries=max_parallel_queries
+            )
+
         db_instance = pg
         print("PostgreSQL initialized")
     elif db_type == "sqlite3" or db_type == "sqlite" or db_type == "local":
