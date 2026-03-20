@@ -94,6 +94,9 @@ class AsyncSQLiteWrapper(AsyncDatabasePrototype):
                 await self._conn.rollback()
                 raise
 
+    async def fetchone(self, query, params=None):
+        return await self.fetch_one(query, params)
+
     async def fetch_one(self, query, params=None):
         """Fetch a single row as a sqlite3.Row (supports dict-style access), or None."""
         self._log(query)
@@ -109,6 +112,9 @@ class AsyncSQLiteWrapper(AsyncDatabasePrototype):
             except Exception as e:
                 print(f"Error fetching data: {e}")
                 raise
+
+    async def fetchall(self, query, params=None):
+        return await self.fetch_all(query, params)
 
     async def fetch_all(self, query, params=None):
         """Fetch all matching rows as a list of sqlite3.Row objects."""
@@ -199,11 +205,17 @@ class AsyncSQLiteTransaction(AsyncTransaction):
             return None
         return await self._cursor.fetchone()
 
+    async def fetch_one(self):
+        return await self.fetchone()
+
     async def fetchall(self):
         """Return all rows from the last executed query."""
         if self._cursor is None:
             return []
         return await self._cursor.fetchall()
+
+    async def fetch_all(self):
+        return await self.fetchall()
 
     async def commit(self):
         await self._conn.commit()

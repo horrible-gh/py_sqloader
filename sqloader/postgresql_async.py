@@ -119,6 +119,9 @@ class AsyncPostgreSQLWrapper(AsyncDatabasePrototype):
             print(f"Last query: {q}")
             raise
 
+    async def fetchone(self, query, params=None):
+        return await self.fetch_one(query, params)
+
     async def fetch_one(self, query, params=None):
         """Fetch a single row as a dict, or None if no row matches."""
         q = _to_asyncpg_query(query)
@@ -138,6 +141,9 @@ class AsyncPostgreSQLWrapper(AsyncDatabasePrototype):
             print(f"Error fetching data: {e}")
             print(f"Last query: {q}")
             raise
+
+    async def fetchall(self, query, params=None):
+        return await self.fetch_all(query, params)
 
     async def fetch_all(self, query, params=None):
         """Fetch all matching rows as a list of dicts."""
@@ -249,9 +255,15 @@ class AsyncPostgreSQLTransaction(AsyncTransaction):
         """Return the first row from the last SELECT, or None."""
         return self._last_results[0] if self._last_results else None
 
+    async def fetch_one(self):
+        return await self.fetchone()
+
     async def fetchall(self):
         """Return all rows from the last SELECT."""
         return self._last_results
+
+    async def fetch_all(self):
+        return await self.fetchall()
 
     async def commit(self):
         await self._txn.commit()

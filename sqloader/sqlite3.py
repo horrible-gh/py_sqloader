@@ -82,6 +82,9 @@ class SQLiteWrapper(DatabasePrototype):
         else:
             return self._execute_file(query, params, commit)
 
+    def fetchone(self, query, params=None):
+        return self.fetch_one(query, params)
+
     def fetch_one(self, query, params=None):
         if self.memory_mode:
             with db_lock:
@@ -115,6 +118,9 @@ class SQLiteWrapper(DatabasePrototype):
                     conn.close()
             finally:
                 query_semaphore.release()
+
+    def fetchall(self, query, params=None):
+        return self.fetch_all(query, params)
 
     def fetch_all(self, query, params=None):
         if self.memory_mode:
@@ -198,8 +204,14 @@ class SQLiteTransaction:
     def fetchall(self):
         return self.cursor.fetchall()
 
+    def fetch_all(self):
+        return self.fetchall()
+
     def fetchone(self):
         return self.cursor.fetchone()
+
+    def fetch_one(self):
+        return self.fetchone()
 
     def commit(self):
         self.conn.commit()

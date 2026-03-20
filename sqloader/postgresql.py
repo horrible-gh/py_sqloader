@@ -66,6 +66,9 @@ class PostgreSQLWrapper(DatabasePrototype):
                 self.pool.putconn(conn)
             query_semaphore.release()
 
+    def fetchone(self, query, params=None):
+        return self.fetch_one(query, params)
+
     def fetch_one(self, query, params=None):
         query_semaphore.acquire()
         conn = None
@@ -93,6 +96,9 @@ class PostgreSQLWrapper(DatabasePrototype):
             if conn:
                 self.pool.putconn(conn)
             query_semaphore.release()
+
+    def fetchall(self, query, params=None):
+        return self.fetch_all(query, params)
 
     def fetch_all(self, query, params=None):
         query_semaphore.acquire()
@@ -155,8 +161,14 @@ class PostgreSQLTransaction(Transaction):
     def fetchall(self):
         return self.cursor.fetchall()
 
+    def fetch_all(self):
+        return self.fetchall()
+
     def fetchone(self):
         return self.cursor.fetchone()
+
+    def fetch_one(self):
+        return self.fetchone()
 
     def commit(self):
         self.conn.commit()

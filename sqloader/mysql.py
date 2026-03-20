@@ -116,6 +116,12 @@ class MySqlWrapper(DatabasePrototype):
     def execute(self, query, params=None, commit=True):
         return self.execute_query(query, params, commit)
 
+    def fetchall(self, query, params=None):
+        return self.fetch_all(query, params)
+
+    def fetchone(self, query, params=None):
+        return self.fetch_one(query, params)
+
     def fetch_all(self, query, params=None):
         query_semaphore.acquire()
         try:
@@ -248,8 +254,14 @@ class MySqlTransaction(Transaction):
     def fetchall(self):
         return self.cursor.fetchall()
 
+    def fetch_all(self):
+        return self.fetchall()
+
     def fetchone(self):
         return self.cursor.fetchone()
+
+    def fetch_one(self):
+        return self.fetchone()
 
     def commit(self):
         self.conn.commit()

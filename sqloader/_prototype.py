@@ -36,6 +36,12 @@ class DatabasePrototype:
     def fetch_all(self, query, params=None):
         pass
 
+    def fetchone(self, query, params=None):
+        pass
+
+    def fetchall(self, query, params=None):
+        pass
+
     def close(self):
         pass
 

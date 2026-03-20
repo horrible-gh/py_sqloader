@@ -25,7 +25,13 @@ class AsyncDatabasePrototype:
     async def commit(self):
         pass
 
+    async def fetchone(self, query, params=None):
+        pass
+
     async def fetch_one(self, query, params=None):
+        pass
+
+    async def fetchall(self, query, params=None):
         pass
 
     async def fetch_all(self, query, params=None):

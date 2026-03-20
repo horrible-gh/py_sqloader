@@ -89,6 +89,9 @@ class AsyncMySqlWrapper(AsyncDatabasePrototype):
             print(f"Last query: {query}")
             raise
 
+    async def fetchone(self, query, params=None):
+        return await self.fetch_one(query, params)
+
     async def fetch_one(self, query, params=None):
         """Fetch a single row as a dict, or None if no row matches."""
         self._log(query)
@@ -103,6 +106,9 @@ class AsyncMySqlWrapper(AsyncDatabasePrototype):
             print(f"Error fetching data: {e}")
             print(f"Last query: {query}")
             raise
+
+    async def fetchall(self, query, params=None):
+        return await self.fetch_all(query, params)
 
     async def fetch_all(self, query, params=None):
         """Fetch all matching rows as a list of dicts."""
@@ -185,9 +191,15 @@ class AsyncMySqlTransaction(AsyncTransaction):
         """Return the next row from the last executed query, or None."""
         return await self._cursor.fetchone()
 
+    async def fetch_one(self):
+        return await self.fetchone()
+
     async def fetchall(self):
         """Return all remaining rows from the last executed query."""
         return await self._cursor.fetchall()
+
+    async def fetch_all(self):
+        return await self.fetchall()
 
     async def commit(self):
         await self._conn.commit()
