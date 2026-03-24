@@ -65,14 +65,14 @@ class SQLoader:
     def check_file_exists(self, file_path):
         return os.path.isfile(file_path)
 
-    def read_json_file(self, file_path):
+    def read_json_file(self, file_path, encode='utf-8-sig'):
         if self.check_file_exists(file_path):
-            with open(file_path, 'r') as file:
+            with open(file_path, 'r', encoding=encode) as file:
                 return json.load(file)
         else:
             raise FileNotFoundError(f"File not found: {file_path}")
 
-    def read_sql_file(self, file_path, encode="utf-8"):
+    def read_sql_file(self, file_path, encode="utf-8-sig"):
         if self.check_file_exists(file_path):
             with open(file_path, 'r', encoding=encode) as file:
                 return file.read()
@@ -93,7 +93,7 @@ class SQLoader:
         if suffix in filename:
             suffix = ""
         file_path = os.path.join(self.sql_dir, f"{filename}{suffix}")
-        queries = self.read_json_file(file_path)
+        queries = self.read_json_file(file_path, encode)
 
         query = self.deep_get(queries, query_name)
         if query is None:
