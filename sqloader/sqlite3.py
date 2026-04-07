@@ -39,6 +39,8 @@ class SQLiteWrapper(DatabasePrototype):
         """In-memory mode: single connection + Lock (serialized)."""
         with db_lock:
             try:
+                if params is not None and not isinstance(params, (tuple, list, dict)):
+                    params = (params,)
                 if params is None:
                     self.cursor.execute(query)
                 else:
@@ -59,6 +61,8 @@ class SQLiteWrapper(DatabasePrototype):
             conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
             try:
+                if params is not None and not isinstance(params, (tuple, list, dict)):
+                    params = (params,)
                 if params is None:
                     cursor.execute(query)
                 else:
@@ -89,6 +93,8 @@ class SQLiteWrapper(DatabasePrototype):
         if self.memory_mode:
             with db_lock:
                 try:
+                    if params is not None and not isinstance(params, (tuple, list, dict)):
+                        params = (params,)
                     if params is None:
                         self.cursor.execute(query)
                     else:
@@ -105,6 +111,8 @@ class SQLiteWrapper(DatabasePrototype):
                 conn.row_factory = sqlite3.Row
                 cursor = conn.cursor()
                 try:
+                    if params is not None and not isinstance(params, (tuple, list, dict)):
+                        params = (params,)
                     if params is None:
                         cursor.execute(query)
                     else:
@@ -126,6 +134,8 @@ class SQLiteWrapper(DatabasePrototype):
         if self.memory_mode:
             with db_lock:
                 try:
+                    if params is not None and not isinstance(params, (tuple, list, dict)):
+                        params = (params,)
                     if params is None:
                         self.cursor.execute(query)
                     else:
@@ -141,6 +151,8 @@ class SQLiteWrapper(DatabasePrototype):
                 conn.row_factory = sqlite3.Row
                 cursor = conn.cursor()
                 try:
+                    if params is not None and not isinstance(params, (tuple, list, dict)):
+                        params = (params,)
                     if params is None:
                         cursor.execute(query)
                     else:

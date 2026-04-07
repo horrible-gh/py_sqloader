@@ -49,6 +49,8 @@ class PostgreSQLWrapper(DatabasePrototype):
                     self.log(query)
                     if params is not None:
                         self.log(params)
+                    if params is not None and not isinstance(params, (tuple, list, dict)):
+                        params = (params,)
                     cursor.execute(query, params)
                     if commit:
                         conn.commit()
@@ -80,6 +82,8 @@ class PostgreSQLWrapper(DatabasePrototype):
                     self.log(query)
                     if params is not None:
                         self.log(params)
+                    if params is not None and not isinstance(params, (tuple, list, dict)):
+                        params = (params,)
                     cursor.execute(query, params)
                     result = cursor.fetchone()
                 conn.rollback()  # Close the implicit transaction before returning to pool
@@ -111,6 +115,8 @@ class PostgreSQLWrapper(DatabasePrototype):
                     self.log(query)
                     if params is not None:
                         self.log(params)
+                    if params is not None and not isinstance(params, (tuple, list, dict)):
+                        params = (params,)
                     cursor.execute(query, params)
                     result = cursor.fetchall()
                 conn.rollback()  # Close the implicit transaction before returning to pool
@@ -156,6 +162,8 @@ class PostgreSQLTransaction(Transaction):
         self.cursor = self.conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
     def execute(self, query, params=None):
+        if params is not None and not isinstance(params, (tuple, list, dict)):
+            params = (params,)
         return self.cursor.execute(query, params)
 
     def fetchall(self):
