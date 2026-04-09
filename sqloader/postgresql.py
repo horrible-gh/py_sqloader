@@ -68,6 +68,9 @@ class PostgreSQLWrapper(DatabasePrototype):
                 self.pool.putconn(conn)
             query_semaphore.release()
 
+    def execute_query(self, query, params=None, commit=True):
+        return self.execute(query, params, commit)
+
     def fetchone(self, query, params=None):
         return self.fetch_one(query, params)
 

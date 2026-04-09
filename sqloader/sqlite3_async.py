@@ -94,6 +94,9 @@ class AsyncSQLiteWrapper(AsyncDatabasePrototype):
                 await self._conn.rollback()
                 raise
 
+    async def execute_query(self, query, params=None, commit=True):
+        return await self.execute(query, params, commit)
+
     async def fetchone(self, query, params=None):
         return await self.fetch_one(query, params)
 
