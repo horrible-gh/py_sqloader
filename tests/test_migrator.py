@@ -129,3 +129,49 @@ class TestAutoRun:
         m = DatabaseMigrator(db, migration_dir, auto_run=False)
         applied = m.get_applied_migrations()
         assert len(applied) == 0
+
+
+# ---------------------------------------------------------------------------
+# comment-only chunk (문제 1)
+# ---------------------------------------------------------------------------
+
+class TestCommentOnlyChunk:
+    def test_comment_only_file_does_not_raise(self, db):
+        """주석과 공백만 있는 청크는 실행 없이 건너뛰어야 한다."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with open(os.path.join(tmpdir, "001_comments.sql"), "w") as f:
+                f.write(
+                    "-- this is a comment\n"
+                    "CREATE TABLE comment_test (id INTEGER PRIMARY KEY);\n"
+                    "-- trailing comment\n"
+                )
+            m = DatabaseMigrator(db, tmpdir, auto_run=True)
+            applied = m.get_applied_migrations()
+            assert "001_comments.sql" in applied
+
+        rows = db.fetch_all(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='comment_test'"
+        )
+        assert len(list(rows)) == 1
+
+
+# ---------------------------------------------------------------------------
+# multi-statement SQL file (문제 2 — split 경계 검증)
+# ---------------------------------------------------------------------------
+
+class TestMultiStatementFile:
+    def test_multiple_statements_in_one_file(self, db):
+        """세미콜론으로 구분된 여러 구문이 모두 올바르게 실행되어야 한다."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with open(os.path.join(tmpdir, "001_multi.sql"), "w") as f:
+                f.write(
+                    "CREATE TABLE multi_a (id INTEGER PRIMARY KEY);\n"
+                    "CREATE TABLE multi_b (id INTEGER PRIMARY KEY);\n"
+                )
+            DatabaseMigrator(db, tmpdir, auto_run=True)
+
+        for table in ("multi_a", "multi_b"):
+            rows = db.fetch_all(
+                f"SELECT name FROM sqlite_master WHERE type='table' AND name='{table}'"
+            )
+            assert len(list(rows)) == 1, f"Table {table} was not created"

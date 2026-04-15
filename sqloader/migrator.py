@@ -1,5 +1,7 @@
 import os
+import re
 import glob
+import sqlparse
 from ._prototype import DatabasePrototype, MYSQL, SQLITE, POSTGRESQL
 
 class DatabaseMigrator:
@@ -53,15 +55,15 @@ class DatabaseMigrator:
         full_path = os.path.join(self.migrations_path, migration)
 
         with open(full_path, 'r', encoding='utf-8') as f:
-            sql_commands = f.read().split(';')
+            sql_commands = [s.strip() for s in sqlparse.split(f.read()) if s.strip()]
 
         try:
             # Execute all statements in a single transaction
             with self.db.begin_transaction() as txn:
                 for command in sql_commands:
-                    command = command.strip()
-                    if command:
-                        txn.execute(command)
+                    if not re.sub(r'--[^\n]*', '', command).strip():
+                        continue
+                    txn.execute(command)
                 # Auto-commit on exit, auto-rollback on exception
 
             if self.db.db_type == SQLITE:

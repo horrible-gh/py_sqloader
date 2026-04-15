@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='sqloader',
-    version='0.2.8',
+    version='0.2.9',
     description='py_sqloader package',
     author='horrible-gh',
     author_email='shinjpn1@gmail.com',
@@ -23,6 +23,7 @@ setup(
     python_requires='>=3.6',
     install_requires=[
         "pymysql>=1.1.1",  # MySQL sync is always included
+        "sqlparse>=0.4.0",
     ],
     extras_require={
         "postgresql": ["psycopg2-binary>=2.9.0"],

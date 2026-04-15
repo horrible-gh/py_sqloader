@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "sqloader"
-version = "0.2.8"
+version = "0.2.9"
 authors = [
   { name="horrible", email="shinjpn1@gmail.com" },
 ]
@@ -21,7 +21,7 @@ keywords = [
     "MySQL", "SQLite", "SQL migration", "schema management",
     "json sql loader"
 ]
-dependencies=['LogAssist', 'pymysql>=1.1.1']
+dependencies=['LogAssist', 'pymysql>=1.1.1', 'sqlparse>=0.4.0']
 
 [project.optional-dependencies]
 postgresql = ["psycopg2-binary>=2.9.0"]
