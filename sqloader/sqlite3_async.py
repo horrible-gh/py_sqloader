@@ -87,6 +87,8 @@ class AsyncSQLiteWrapper(AsyncDatabasePrototype):
                 else:
                     cursor = await self._conn.execute(query, params)
                 if commit:
+                    if cursor.description is not None:
+                        await cursor.fetchall()
                     await self._conn.commit()
                 return cursor.lastrowid
             except Exception as e:

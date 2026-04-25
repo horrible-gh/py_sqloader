@@ -140,6 +140,74 @@ class TestTransactionCommit:
 # begin_transaction — rollback path
 # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# RETURNING clause compatibility (Python 3.13+ / SQLite 3.35+)
+# ---------------------------------------------------------------------------
+
+class TestReturning:
+    def test_memory_insert_returning_no_exception(self, db):
+        """RETURNING on memory-mode execute must not raise OperationalError."""
+        rowid = db.execute(
+            "INSERT INTO users (name) VALUES (?) RETURNING id, name",
+            ("ReturningUser",)
+        )
+        # lastrowid contract still holds (may be 0 when RETURNING is present
+        # in some SQLite versions; just assert no exception was raised)
+        assert rowid is not None or rowid == 0
+
+    def test_memory_insert_returning_row_persisted(self, db):
+        """Row inserted via RETURNING query is actually committed."""
+        db.execute(
+            "INSERT INTO users (name) VALUES (?) RETURNING id, name",
+            ("Persisted",)
+        )
+        row = db.fetch_one("SELECT * FROM users WHERE name = ?", ("Persisted",))
+        assert row is not None
+        assert row["name"] == "Persisted"
+
+    def test_file_insert_returning_no_exception(self, file_db):
+        """RETURNING on file-mode execute must not raise OperationalError."""
+        rowid = file_db.execute(
+            "INSERT INTO users (name) VALUES (?) RETURNING id, name",
+            ("FileReturning",)
+        )
+        assert rowid is not None or rowid == 0
+
+    def test_file_insert_returning_row_persisted(self, file_db):
+        """Row inserted via RETURNING query is actually committed in file mode."""
+        file_db.execute(
+            "INSERT INTO users (name) VALUES (?) RETURNING id, name",
+            ("FilePersisted",)
+        )
+        row = file_db.fetch_one("SELECT * FROM users WHERE name = ?", ("FilePersisted",))
+        assert row is not None
+        assert row["name"] == "FilePersisted"
+
+    def test_memory_insert_without_returning_still_works(self, db):
+        """Regression: plain INSERT (no RETURNING) continues to work in memory mode."""
+        rowid = db.execute("INSERT INTO users (name) VALUES (?)", ("Plain",))
+        assert rowid == 1
+        row = db.fetch_one("SELECT * FROM users WHERE id = ?", (rowid,))
+        assert row["name"] == "Plain"
+
+    def test_file_insert_without_returning_still_works(self, file_db):
+        """Regression: plain INSERT (no RETURNING) continues to work in file mode."""
+        rowid = file_db.execute("INSERT INTO users (name) VALUES (?)", ("FilePlain",))
+        assert rowid == 1
+        row = file_db.fetch_one("SELECT * FROM users WHERE id = ?", (rowid,))
+        assert row["name"] == "FilePlain"
+
+    def test_memory_update_returning_no_exception(self, db):
+        """RETURNING on UPDATE must not raise OperationalError in memory mode."""
+        db.execute("INSERT INTO users (name) VALUES (?)", ("OldName",))
+        db.execute(
+            "UPDATE users SET name = ? WHERE name = ? RETURNING id",
+            ("NewName", "OldName")
+        )
+        row = db.fetch_one("SELECT * FROM users WHERE name = ?", ("NewName",))
+        assert row is not None
+
+
 class TestTransactionRollback:
     def test_transaction_rolls_back_on_exception(self, file_db):
         try:

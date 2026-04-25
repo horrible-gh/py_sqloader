@@ -46,6 +46,8 @@ class SQLiteWrapper(DatabasePrototype):
                 else:
                     self.cursor.execute(query, params)
                 if commit:
+                    if self.cursor.description is not None:
+                        self.cursor.fetchall()
                     self.conn.commit()
                 return self.cursor.lastrowid
             except sqlite3.DatabaseError as e:
@@ -68,6 +70,8 @@ class SQLiteWrapper(DatabasePrototype):
                 else:
                     cursor.execute(query, params)
                 if commit:
+                    if cursor.description is not None:
+                        cursor.fetchall()
                     conn.commit()
                 return cursor.lastrowid
             except sqlite3.DatabaseError as e:
