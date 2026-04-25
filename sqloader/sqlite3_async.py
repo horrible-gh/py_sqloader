@@ -113,7 +113,8 @@ class AsyncSQLiteWrapper(AsyncDatabasePrototype):
                     cursor = await self._conn.execute(query)
                 else:
                     cursor = await self._conn.execute(query, params)
-                return await cursor.fetchone()
+                result = await cursor.fetchone()
+                return dict(result) if result is not None else None
             except Exception as e:
                 print(f"Error fetching data: {e}")
                 raise
@@ -132,7 +133,7 @@ class AsyncSQLiteWrapper(AsyncDatabasePrototype):
                     cursor = await self._conn.execute(query)
                 else:
                     cursor = await self._conn.execute(query, params)
-                return await cursor.fetchall()
+                return [dict(r) for r in await cursor.fetchall()]
             except Exception as e:
                 print(f"Error fetching data: {e}")
                 raise
@@ -208,7 +209,8 @@ class AsyncSQLiteTransaction(AsyncTransaction):
         """Return the first row from the last executed query, or None."""
         if self._cursor is None:
             return None
-        return await self._cursor.fetchone()
+        result = await self._cursor.fetchone()
+        return dict(result) if result is not None else None
 
     async def fetch_one(self):
         return await self.fetchone()
@@ -217,7 +219,7 @@ class AsyncSQLiteTransaction(AsyncTransaction):
         """Return all rows from the last executed query."""
         if self._cursor is None:
             return []
-        return await self._cursor.fetchall()
+        return [dict(r) for r in await self._cursor.fetchall()]
 
     async def fetch_all(self):
         return await self.fetchall()

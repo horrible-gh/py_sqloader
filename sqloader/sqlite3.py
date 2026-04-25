@@ -106,7 +106,8 @@ class SQLiteWrapper(DatabasePrototype):
                         self.cursor.execute(query)
                     else:
                         self.cursor.execute(query, params)
-                    return self.cursor.fetchone()
+                    result = self.cursor.fetchone()
+                    return dict(result) if result is not None else None
                 except sqlite3.DatabaseError as e:
                     print(f"Error fetching data (memory mode, fetch_one): {e}")
                     raise e
@@ -124,7 +125,8 @@ class SQLiteWrapper(DatabasePrototype):
                         cursor.execute(query)
                     else:
                         cursor.execute(query, params)
-                    return cursor.fetchone()
+                    result = cursor.fetchone()
+                    return dict(result) if result is not None else None
                 except sqlite3.DatabaseError as e:
                     print(f"Error fetching data (file mode, fetch_one): {e}")
                     raise e
@@ -147,7 +149,7 @@ class SQLiteWrapper(DatabasePrototype):
                         self.cursor.execute(query)
                     else:
                         self.cursor.execute(query, params)
-                    return self.cursor.fetchall()
+                    return [dict(r) for r in self.cursor.fetchall()]
                 except sqlite3.DatabaseError as e:
                     print(f"Error fetching data (memory mode, fetch_all): {e}")
                     raise e
@@ -164,7 +166,7 @@ class SQLiteWrapper(DatabasePrototype):
                         cursor.execute(query)
                     else:
                         cursor.execute(query, params)
-                    return cursor.fetchall()
+                    return [dict(r) for r in cursor.fetchall()]
                 except sqlite3.DatabaseError as e:
                     print(f"Error fetching data (file mode, fetch_all): {e}")
                     raise e
@@ -221,13 +223,14 @@ class SQLiteTransaction:
         return self.cursor.execute(query, params)
 
     def fetchall(self):
-        return self.cursor.fetchall()
+        return [dict(r) for r in self.cursor.fetchall()]
 
     def fetch_all(self):
         return self.fetchall()
 
     def fetchone(self):
-        return self.cursor.fetchone()
+        result = self.cursor.fetchone()
+        return dict(result) if result is not None else None
 
     def fetch_one(self):
         return self.fetchone()
