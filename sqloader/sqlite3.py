@@ -225,14 +225,18 @@ class SQLiteTransaction:
     def fetchall(self):
         return [dict(r) for r in self.cursor.fetchall()]
 
-    def fetch_all(self):
+    def fetch_all(self, query=None, params=None):
+        if query is not None:
+            self.execute(query, params)
         return self.fetchall()
 
     def fetchone(self):
         result = self.cursor.fetchone()
         return dict(result) if result is not None else None
 
-    def fetch_one(self):
+    def fetch_one(self, query=None, params=None):
+        if query is not None:
+            self.execute(query, params)
         return self.fetchone()
 
     def commit(self):

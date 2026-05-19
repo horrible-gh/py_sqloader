@@ -101,6 +101,16 @@ class Transaction:
     def fetchone(self):
         pass
 
+    def fetch_one(self, query=None, params=None):
+        if query is not None:
+            self.execute(query, params)
+        return self.fetchone()
+
+    def fetch_all(self, query=None, params=None):
+        if query is not None:
+            self.execute(query, params)
+        return self.fetchall()
+
     def commit(self):
         pass
 

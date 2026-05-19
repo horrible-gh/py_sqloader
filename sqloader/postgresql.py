@@ -172,13 +172,17 @@ class PostgreSQLTransaction(Transaction):
     def fetchall(self):
         return self.cursor.fetchall()
 
-    def fetch_all(self):
+    def fetch_all(self, query=None, params=None):
+        if query is not None:
+            self.execute(query, params)
         return self.fetchall()
 
     def fetchone(self):
         return self.cursor.fetchone()
 
-    def fetch_one(self):
+    def fetch_one(self, query=None, params=None):
+        if query is not None:
+            self.execute(query, params)
         return self.fetchone()
 
     def commit(self):
