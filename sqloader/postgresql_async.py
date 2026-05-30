@@ -258,14 +258,18 @@ class AsyncPostgreSQLTransaction(AsyncTransaction):
         """Return the first row from the last SELECT, or None."""
         return self._last_results[0] if self._last_results else None
 
-    async def fetch_one(self):
+    async def fetch_one(self, query=None, params=None):
+        if query is not None:
+            await self.execute(query, params)
         return await self.fetchone()
 
     async def fetchall(self):
         """Return all rows from the last SELECT."""
         return self._last_results
 
-    async def fetch_all(self):
+    async def fetch_all(self, query=None, params=None):
+        if query is not None:
+            await self.execute(query, params)
         return await self.fetchall()
 
     async def commit(self):

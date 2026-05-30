@@ -194,14 +194,18 @@ class AsyncMySqlTransaction(AsyncTransaction):
         """Return the next row from the last executed query, or None."""
         return await self._cursor.fetchone()
 
-    async def fetch_one(self):
+    async def fetch_one(self, query=None, params=None):
+        if query is not None:
+            await self.execute(query, params)
         return await self.fetchone()
 
     async def fetchall(self):
         """Return all remaining rows from the last executed query."""
         return await self._cursor.fetchall()
 
-    async def fetch_all(self):
+    async def fetch_all(self, query=None, params=None):
+        if query is not None:
+            await self.execute(query, params)
         return await self.fetchall()
 
     async def commit(self):
