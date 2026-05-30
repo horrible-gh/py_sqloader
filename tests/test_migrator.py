@@ -10,7 +10,7 @@ import os
 import pytest
 import tempfile
 from sqloader.sqlite3 import SQLiteWrapper
-from sqloader.migrator import DatabaseMigrator
+from sqloader.migrator import DatabaseMigrator, _split_sql_statements
 
 
 @pytest.fixture
@@ -153,6 +153,70 @@ class TestCommentOnlyChunk:
             "SELECT name FROM sqlite_master WHERE type='table' AND name='comment_test'"
         )
         assert len(list(rows)) == 1
+
+    def test_comment_only_file_with_block_comment_does_not_raise(self, db):
+        """주석 안의 세미콜론은 실행할 SQL로 취급하지 않아야 한다."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with open(os.path.join(tmpdir, "001_comments.sql"), "w", encoding="utf-8") as f:
+                f.write(
+                    "-- line comment with ; -- ' \"\n"
+                    "/* block comment with ; -- ' \" */\n"
+                )
+            m = DatabaseMigrator(db, tmpdir, auto_run=True)
+            applied = m.get_applied_migrations()
+            assert "001_comments.sql" in applied
+
+
+class TestSqlStatementSplitting:
+    def test_ignores_semicolons_inside_line_and_block_comments(self):
+        sql = (
+            "-- worker inserted or created a document; review is pending\n"
+            "/* block comment with ; -- ' \" */\n"
+            "CREATE TABLE review_docs (id INTEGER PRIMARY KEY, status TEXT);\n"
+            "-- trailing comment; should not become a statement\n"
+        )
+
+        assert _split_sql_statements(sql) == [
+            (
+                "-- worker inserted or created a document; review is pending\n"
+                "/* block comment with ; -- ' \" */\n"
+                "CREATE TABLE review_docs (id INTEGER PRIMARY KEY, status TEXT);"
+            )
+        ]
+
+    def test_ignores_semicolons_inside_string_literals(self):
+        sql = (
+            "CREATE TABLE literal_test (value TEXT);\n"
+            "INSERT INTO literal_test (value) VALUES ('semi; -- not a comment');\n"
+        )
+
+        statements = _split_sql_statements(sql)
+
+        assert len(statements) == 2
+        assert statements[1] == (
+            "INSERT INTO literal_test (value) VALUES ('semi; -- not a comment');"
+        )
+
+    def test_keeps_mysql_executable_comments(self):
+        assert _split_sql_statements("/*!40101 SET @OLD_SQL_MODE=@@SQL_MODE */;") == [
+            "/*!40101 SET @OLD_SQL_MODE=@@SQL_MODE */;"
+        ]
+
+    def test_migration_applies_when_comments_contain_semicolons(self, db):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with open(os.path.join(tmpdir, "001_tricky_comments.sql"), "w", encoding="utf-8") as f:
+                f.write(
+                    "-- worker inserted or created a document; review is pending\n"
+                    "-- comment includes ; -- ' \"\n"
+                    "/* block comment includes ; -- ' \" */\n"
+                    "CREATE TABLE tricky_comments (value TEXT);\n"
+                    "INSERT INTO tricky_comments (value) VALUES ('literal; -- still text');\n"
+                    "-- trailing comment with ;\n"
+                )
+            DatabaseMigrator(db, tmpdir, auto_run=True)
+
+        row = db.fetch_one("SELECT value FROM tricky_comments")
+        assert row["value"] == "literal; -- still text"
 
 
 # ---------------------------------------------------------------------------

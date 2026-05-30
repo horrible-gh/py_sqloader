@@ -1,8 +1,34 @@
 import os
-import re
 import glob
 import sqlparse
+from sqlparse import tokens as T
 from ._prototype import DatabasePrototype, MYSQL, SQLITE, POSTGRESQL
+
+
+def _has_executable_sql(statement):
+    """Return True when a split SQL chunk contains non-comment SQL tokens."""
+    for parsed in sqlparse.parse(statement):
+        for token in parsed.flatten():
+            if token.is_whitespace:
+                continue
+            if token.ttype in T.Comment:
+                if token.value.lstrip().startswith('/*!'):
+                    return True
+                continue
+            if token.match(T.Punctuation, ';'):
+                continue
+            return True
+    return False
+
+
+def _split_sql_statements(sql):
+    """Split SQL while preserving semicolons inside comments and strings."""
+    return [
+        statement.strip()
+        for statement in sqlparse.split(sql)
+        if _has_executable_sql(statement)
+    ]
+
 
 class DatabaseMigrator:
     def __init__(self, db: DatabasePrototype, migrations_path, auto_run=False):
@@ -55,14 +81,12 @@ class DatabaseMigrator:
         full_path = os.path.join(self.migrations_path, migration)
 
         with open(full_path, 'r', encoding='utf-8') as f:
-            sql_commands = [s.strip() for s in sqlparse.split(f.read()) if s.strip()]
+            sql_commands = _split_sql_statements(f.read())
 
         try:
             # Execute all statements in a single transaction
             with self.db.begin_transaction() as txn:
                 for command in sql_commands:
-                    if not re.sub(r'--[^\n]*', '', command).strip():
-                        continue
                     txn.execute(command)
                 # Auto-commit on exit, auto-rollback on exception
 
