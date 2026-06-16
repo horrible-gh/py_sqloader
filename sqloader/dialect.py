@@ -208,6 +208,10 @@ class DialectConverter:
         stmt = RE_INSERT_OR_IGNORE.sub("INSERT IGNORE", stmt)
         stmt = RE_INSERT_OR_REPLACE.sub("REPLACE", stmt)
         stmt = RE_DATETIME_NOW.sub("UTC_TIMESTAMP()", stmt)
+        # In SQLite a double-quoted "x" is an identifier; MySQL (default mode)
+        # would read it as a string literal, so rewrite it to a backtick ident
+        # to preserve meaning -- symmetric with mysql/postgres -> mysql.
+        stmt = RE_DQUOTE_IDENT.sub(r"`\1`", stmt)
         # json_extract(col, '$.x') is valid as-is in MySQL.
         return stmt
 

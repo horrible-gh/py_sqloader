@@ -77,6 +77,13 @@ class TestSqliteToMysql:
         out = convert_sql("SELECT json_extract(data, '$.name') FROM t", "sqlite", "mysql")
         assert "json_extract(data, '$.name')" in out
 
+    def test_double_quote_idents_become_backticks(self):
+        # SQLite double-quoted identifiers must become backticks; MySQL default
+        # mode would otherwise read "id" as a string literal.
+        out = convert_sql('SELECT "id" FROM "users"', "sqlite", "mysql")
+        assert "`id`" in out and "`users`" in out
+        assert '"id"' not in out
+
 
 # ---------------------------------------------------------------------------
 # SQLite -> PostgreSQL
