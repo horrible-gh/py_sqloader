@@ -3,6 +3,7 @@ from .sqlite3 import SQLiteWrapper
 from .mysql import MySqlWrapper
 from .sqloader import SQLoader
 from .migrator import DatabaseMigrator
+from .dialect import DialectConverter, convert_sql, convert_placeholders, normalize_dialect
 from ._async_prototype import AsyncDatabasePrototype, AsyncTransaction
 
 # Optional imports: only load if dependencies are available

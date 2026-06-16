@@ -38,6 +38,7 @@ pip install sqloader[all]
 - Async support: `asyncpg`, `aiomysql`, `aiosqlite`
 - Async integrated execution: `await sqloader.async_execute()`, `await sqloader.async_fetchone()`, `await sqloader.async_fetchall()`
 - **Query file sync**: copy `.json`/`.sql` files between DB directories (`sync()`, `sync_from` config, CLI)
+- **Dialect conversion**: rule-based translation of SQL between SQLite, MySQL/MariaDB and PostgreSQL (`convert_sql()`, `DialectConverter`, CLI)
 
 ---
 
@@ -307,6 +308,72 @@ Copied: 2 files
 Skipped: 1 files
   - user.json
 ```
+
+---
+
+## Dialect Conversion
+
+sqloader applies migration/query SQL verbatim — it never rewrites it. When you
+keep a single canonical set of SQL (typically the SQLite migrations) and want to
+target MySQL/MariaDB or PostgreSQL as well, `DialectConverter` translates the
+constructs that differ between dialects.
+
+### What it converts
+
+| Construct | SQLite | MySQL/MariaDB | PostgreSQL |
+|---|---|---|---|
+| Auto-increment PK | `INTEGER PRIMARY KEY AUTOINCREMENT` | `... AUTO_INCREMENT` | `SERIAL PRIMARY KEY` |
+| Conflict-ignore insert | `INSERT OR IGNORE` | `INSERT IGNORE` | `INSERT ... ON CONFLICT DO NOTHING` |
+| Current timestamp | `datetime('now')` | `UTC_TIMESTAMP()` | `CURRENT_TIMESTAMP` |
+| JSON field access | `json_extract(c,'$.x')` | `json_extract(c,'$.x')` | `c->>'x'` |
+| Foreign-key pragma | `PRAGMA foreign_keys = ON` | *(dropped)* | *(dropped)* |
+| Identifier quoting | `"x"` | `` `x` `` | `"x"` |
+| MySQL table options | — | `... ENGINE=InnoDB ...` | *(dropped)* |
+| Parameter placeholder | `?` | `%s` | `%s` |
+
+Conversion is intentionally conservative. Constructs with no safe automatic
+equivalent (`json_each`, `json_group_array`, multi-level JSON paths,
+`ON CONFLICT ... DO UPDATE`, `INSERT OR REPLACE` targeting Postgres/MySQL) are
+left in place and reported through `converter.warnings`. Column *type* mapping
+(e.g. SQLite affinity → strict `VARCHAR`/`BOOLEAN`/`TIMESTAMP`) is **not**
+performed automatically — review types after conversion.
+
+### Python
+
+```python
+from sqloader import convert_sql, DialectConverter
+
+# One-shot
+pg_sql = convert_sql(sqlite_sql, "sqlite", "postgresql")
+
+# With access to warnings, and optional placeholder translation
+conv = DialectConverter("sqlite", "mysql")
+mysql_sql = conv.convert(sqlite_sql, placeholders=True)
+for w in conv.warnings:
+    print("WARN:", w)
+```
+
+Dialect names accept `sqlite`/`sqlite3`, `mysql`/`mariadb`, `postgres`/`postgresql`
+(case-insensitive), or the `SQLITE`/`MYSQL`/`POSTGRESQL` constants.
+
+### CLI
+
+```bash
+# Convert a single file to stdout
+python -m sqloader convert --from sqlite --to postgresql --path 001_schema.sql
+
+# Convert a file to a target file
+python -m sqloader convert --from sqlite --to mysql --path 001_schema.sql --out 001_schema.mysql.sql
+
+# Convert every .sql in a directory into another directory
+python -m sqloader convert --from sqlite --to postgresql \
+    --path sql/migrations/sqlite --out sql/migrations/postgres
+
+# Also translate parameter placeholders (? <-> %s)
+python -m sqloader convert --from sqlite --to mysql --path query.sql --placeholders
+```
+
+Warnings are printed to stderr; converted SQL goes to stdout / the output path.
 
 ---
 
