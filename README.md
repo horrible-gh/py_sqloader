@@ -106,6 +106,48 @@ db, sq, migrator = database_init(config)
 result = sq.fetch_one("user", "get_user_by_id", [123])
 ```
 
+#### Connection pool tuning (PostgreSQL)
+
+All values are optional; the defaults reproduce the previous behaviour.
+
+| Option | Default | Meaning |
+|---|---|---|
+| `max_parallel_queries` | `5` | How many queries may run at once. Callers beyond this wait for a free slot. |
+| `pool_max` | = `max_parallel_queries` | Maximum physical connections. Raise above `max_parallel_queries` to keep spare connections in reserve. |
+| `pool_min` | `1` | Connections opened eagerly at startup. |
+| `acquire_timeout` | `None` | Seconds to wait for a free slot before raising `PoolTimeoutError`. `None` waits indefinitely. |
+| `max_lifetime` | `None` | Discard a connection older than this many seconds when it is next checked out. |
+| `max_idle` | `None` | Discard a connection that sat idle in the pool longer than this many seconds. |
+
+```python
+config = {
+    "type": "postgresql",
+    "postgresql": {
+        "host": "localhost",
+        "user": "postgres",
+        "password": "pass",
+        "database": "mydb",
+        "max_parallel_queries": 30,   # concurrency limit
+        "pool_max": 35,               # a few spare connections for transactions
+        "acquire_timeout": 5,         # fail fast instead of queueing forever
+        "max_lifetime": 3600,         # recycle connections hourly
+        "max_idle": 600               # drop connections idle over 10 minutes
+    },
+}
+```
+
+Note that `max_parallel_queries` — not the pool — is what makes callers queue:
+psycopg2's pool raises `connection pool exhausted` rather than waiting, so
+`pool_max` is required to be `>= max_parallel_queries` and construction fails
+loudly otherwise.
+
+Without `acquire_timeout`, a request that cannot get a slot waits forever. If
+you are debugging latency under load, setting it turns silent queueing into a
+visible error.
+
+MySQL accepts `max_parallel_queries` and `acquire_timeout` with the same
+meaning. MySQL does not pool connections — each query opens its own.
+
 ### SQLite
 
 ```python

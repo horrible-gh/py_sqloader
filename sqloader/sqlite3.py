@@ -3,10 +3,6 @@ import threading
 from ._prototype import DatabasePrototype, Transaction, SQLITE
 from pathlib import Path
 
-query_semaphore = None
-
-db_lock = threading.Lock()
-
 class SQLiteWrapper(DatabasePrototype):
     db_type = SQLITE
 
@@ -18,8 +14,10 @@ class SQLiteWrapper(DatabasePrototype):
             # Auto-create parent directories for the database file
             Path(self.db_name).parent.mkdir(parents=True, exist_ok=True)
 
-        global query_semaphore
-        query_semaphore = threading.Semaphore(max_parallel_queries)
+        # Per-instance, not module-global: two wrappers must not share a limit
+        # or a lock over unrelated databases.
+        self.query_semaphore = threading.Semaphore(max_parallel_queries)
+        self.db_lock = threading.Lock()
 
         if self.memory_mode:
             # In-memory mode: single persistent connection + Lock (serialized access)
@@ -37,7 +35,7 @@ class SQLiteWrapper(DatabasePrototype):
 
     def _execute_memory(self, query, params=None, commit=True):
         """In-memory mode: single connection + Lock (serialized)."""
-        with db_lock:
+        with self.db_lock:
             try:
                 if params is not None and not isinstance(params, (tuple, list, dict)):
                     params = (params,)
@@ -57,7 +55,7 @@ class SQLiteWrapper(DatabasePrototype):
 
     def _execute_file(self, query, params=None, commit=True):
         """File mode: semaphore + new connection per query (limited parallelism)."""
-        query_semaphore.acquire()
+        self.query_semaphore.acquire()
         try:
             conn = sqlite3.connect(self.db_name, check_same_thread=False)
             conn.row_factory = sqlite3.Row
@@ -82,7 +80,7 @@ class SQLiteWrapper(DatabasePrototype):
                 cursor.close()
                 conn.close()
         finally:
-            query_semaphore.release()
+            self.query_semaphore.release()
 
     def execute(self, query, params=None, commit=True):
         if self.memory_mode:
@@ -98,7 +96,7 @@ class SQLiteWrapper(DatabasePrototype):
 
     def fetch_one(self, query, params=None):
         if self.memory_mode:
-            with db_lock:
+            with self.db_lock:
                 try:
                     if params is not None and not isinstance(params, (tuple, list, dict)):
                         params = (params,)
@@ -113,7 +111,7 @@ class SQLiteWrapper(DatabasePrototype):
                     raise e
         else:
             # File mode: open a new connection for the fetch
-            query_semaphore.acquire()
+            self.query_semaphore.acquire()
             try:
                 conn = sqlite3.connect(self.db_name, check_same_thread=False)
                 conn.row_factory = sqlite3.Row
@@ -134,14 +132,14 @@ class SQLiteWrapper(DatabasePrototype):
                     cursor.close()
                     conn.close()
             finally:
-                query_semaphore.release()
+                self.query_semaphore.release()
 
     def fetchall(self, query, params=None):
         return self.fetch_all(query, params)
 
     def fetch_all(self, query, params=None):
         if self.memory_mode:
-            with db_lock:
+            with self.db_lock:
                 try:
                     if params is not None and not isinstance(params, (tuple, list, dict)):
                         params = (params,)
@@ -154,7 +152,7 @@ class SQLiteWrapper(DatabasePrototype):
                     print(f"Error fetching data (memory mode, fetch_all): {e}")
                     raise e
         else:
-            query_semaphore.acquire()
+            self.query_semaphore.acquire()
             try:
                 conn = sqlite3.connect(self.db_name, check_same_thread=False)
                 conn.row_factory = sqlite3.Row
@@ -174,11 +172,11 @@ class SQLiteWrapper(DatabasePrototype):
                     cursor.close()
                     conn.close()
             finally:
-                query_semaphore.release()
+                self.query_semaphore.release()
 
     def rollback(self):
         if self.memory_mode:
-            with db_lock:
+            with self.db_lock:
                 self.conn.rollback()
         else:
             # File mode uses per-query connections; no persistent connection to rollback
@@ -186,7 +184,7 @@ class SQLiteWrapper(DatabasePrototype):
 
     def commit(self):
         if self.memory_mode:
-            with db_lock:
+            with self.db_lock:
                 self.conn.commit()
         else:
             # File mode uses per-query connections; commit is handled inside each call
@@ -194,7 +192,7 @@ class SQLiteWrapper(DatabasePrototype):
 
     def close(self):
         if self.memory_mode:
-            with db_lock:
+            with self.db_lock:
                 self.cursor.close()
                 self.conn.close()
         else:

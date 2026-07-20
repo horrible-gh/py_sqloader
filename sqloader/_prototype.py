@@ -4,6 +4,14 @@ SQLITE = 1
 MYSQL = 2
 POSTGRESQL = 3
 
+
+class PoolTimeoutError(RuntimeError):
+    """Raised when a query slot could not be acquired within the timeout.
+
+    Only raised when the wrapper was constructed with ``acquire_timeout``;
+    without it the caller waits indefinitely (the historical behaviour).
+    """
+
 # Native placeholder per database type
 NATIVE_PLACEHOLDER = {
     MYSQL: "%s",

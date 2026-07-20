@@ -26,11 +26,15 @@ def database_init(db_config):
         database = check_and_get(dbconn_info, "database")
         port = dbconn_info.get("port", None)
         log = dbconn_info.get("log", False)
+        mysql_opts = {
+            "max_parallel_queries": dbconn_info.get("max_parallel_queries", 5),
+            "acquire_timeout": dbconn_info.get("acquire_timeout", None),
+        }
 
         if port != None:
-            mysql = MySqlWrapper(host=host, user=user, password=password, db=database, port=port, log=log)
+            mysql = MySqlWrapper(host=host, user=user, password=password, db=database, port=port, log=log, **mysql_opts)
         else:
-            mysql = MySqlWrapper(host=host, user=user, password=password, db=database, log=log)
+            mysql = MySqlWrapper(host=host, user=user, password=password, db=database, log=log, **mysql_opts)
         db_instance = mysql
         print("MySQL initialized")
     elif db_type == "postgresql" or db_type == "postgres":
@@ -45,17 +49,24 @@ def database_init(db_config):
         database = check_and_get(dbconn_info, "database")
         port = dbconn_info.get("port", 5432)
         log = dbconn_info.get("log", False)
-        max_parallel_queries = dbconn_info.get("max_parallel_queries", 5)
+        pool_opts = {
+            "max_parallel_queries": dbconn_info.get("max_parallel_queries", 5),
+            "pool_min": dbconn_info.get("pool_min", 1),
+            "pool_max": dbconn_info.get("pool_max", None),
+            "acquire_timeout": dbconn_info.get("acquire_timeout", None),
+            "max_lifetime": dbconn_info.get("max_lifetime", None),
+            "max_idle": dbconn_info.get("max_idle", None),
+        }
 
         if port != None:
             pg = PostgreSQLWrapper(
                 host=host, user=user, password=password, database=database,
-                port=port, log=log, max_parallel_queries=max_parallel_queries
+                port=port, log=log, **pool_opts
             )
         else:
             pg = PostgreSQLWrapper(
                 host=host, user=user, password=password, database=database,
-                log=log, max_parallel_queries=max_parallel_queries
+                log=log, **pool_opts
             )
 
         db_instance = pg

@@ -1,18 +1,16 @@
 import pymysql
 import os
 import threading
-from ._prototype import DatabasePrototype, Transaction, MYSQL
+from ._prototype import DatabasePrototype, Transaction, PoolTimeoutError, MYSQL
 from pymysql.cursors import DictCursor
 from time import sleep
-
-query_semaphore = None
 
 class MySqlWrapper(DatabasePrototype):
     db_type = MYSQL
     log_print = False
     external_sql_path = None
 
-    def __init__(self, host, user, password, db, port=3306, log=False, keep_alive_interval=-1, sql_path=None, max_parallel_queries=5):
+    def __init__(self, host, user, password, db, port=3306, log=False, keep_alive_interval=-1, sql_path=None, max_parallel_queries=5, acquire_timeout=None):
         self.host = host
         self.user = user
         self.password = password
@@ -20,9 +18,11 @@ class MySqlWrapper(DatabasePrototype):
         self.port = port
         self.log_print = log
         self.external_sql_path = sql_path
+        self.max_parallel_queries = max_parallel_queries
+        self.acquire_timeout = acquire_timeout
 
-        global query_semaphore
-        query_semaphore = threading.Semaphore(max_parallel_queries)
+        # Per-instance, not module-global: two wrappers must not share a limit.
+        self.query_semaphore = threading.Semaphore(max_parallel_queries)
 
         # Kept for backwards compatibility; not used in execute_query
         self.connect()
@@ -61,10 +61,20 @@ class MySqlWrapper(DatabasePrototype):
         # Return as-is whether dict or list
         return params
 
+    def _acquire_slot(self):
+        if self.acquire_timeout is None:
+            self.query_semaphore.acquire()
+            return
+        if not self.query_semaphore.acquire(timeout=self.acquire_timeout):
+            raise PoolTimeoutError(
+                f"Timed out after {self.acquire_timeout}s waiting for a free "
+                f"query slot (max_parallel_queries={self.max_parallel_queries})."
+            )
+
 
     def execute_query(self, query, params=None, commit=True, retry=1):
         # Limit concurrent queries with semaphore
-        query_semaphore.acquire()
+        self._acquire_slot()
         try:
             conn = pymysql.connect(
                 host=self.host,
@@ -110,7 +120,7 @@ class MySqlWrapper(DatabasePrototype):
                 except Exception as ex:
                     print(f"Closing connection failed: {ex}")
         finally:
-            query_semaphore.release()
+            self.query_semaphore.release()
 
 
     def execute(self, query, params=None, commit=True):
@@ -123,7 +133,7 @@ class MySqlWrapper(DatabasePrototype):
         return self.fetch_one(query, params)
 
     def fetch_all(self, query, params=None):
-        query_semaphore.acquire()
+        self._acquire_slot()
         try:
             conn = pymysql.connect(
                 host=self.host,
@@ -154,10 +164,10 @@ class MySqlWrapper(DatabasePrototype):
                 conn.close()
             except:
                 pass
-            query_semaphore.release()
+            self.query_semaphore.release()
 
     def fetch_one(self, query, params=None):
-        query_semaphore.acquire()
+        self._acquire_slot()
         try:
             conn = pymysql.connect(
                 host=self.host,
@@ -188,7 +198,7 @@ class MySqlWrapper(DatabasePrototype):
                 conn.close()
             except:
                 pass
-            query_semaphore.release()
+            self.query_semaphore.release()
 
     def commit(self):
         # No persistent connection; no-op
