@@ -468,3 +468,104 @@ class TestConnectionRecycling:
         wrapper, _ = _make_wrapper()
         assert wrapper.max_lifetime is None
         assert wrapper.max_idle is None
+
+# ---------------------------------------------------------------------------
+# Transaction teardown must always return the connection (NR0003 finding 3)
+# ---------------------------------------------------------------------------
+
+class TestTransactionTeardown:
+    def test_failing_commit_still_returns_connection_and_slot(self):
+        wrapper, pool = _make_wrapper(max_parallel_queries=2)
+        conn, _ = _mock_conn()
+        conn.commit.side_effect = RuntimeError("serialization failure")
+        pool.getconn.return_value = conn
+
+        before = wrapper.query_semaphore._value
+        with pytest.raises(RuntimeError):
+            with wrapper.begin_transaction() as tx:
+                tx.execute("INSERT INTO t VALUES (1)")
+
+        pool.putconn.assert_called_once_with(conn)
+        assert wrapper.query_semaphore._value == before
+        conn.rollback.assert_called_once(), "connection went back mid-transaction"
+
+    def test_failing_cursor_close_still_returns_connection(self):
+        wrapper, pool = _make_wrapper(max_parallel_queries=2)
+        conn, cursor = _mock_conn()
+        cursor.close.side_effect = RuntimeError("cursor already dead")
+        pool.getconn.return_value = conn
+
+        before = wrapper.query_semaphore._value
+        tx = wrapper.begin_transaction()
+        with pytest.raises(RuntimeError):
+            tx.close()
+
+        pool.putconn.assert_called_once_with(conn)
+        assert wrapper.query_semaphore._value == before
+
+    def test_failing_cursor_creation_returns_connection(self):
+        wrapper, pool = _make_wrapper(max_parallel_queries=2)
+        conn, _ = _mock_conn()
+        conn.cursor.side_effect = RuntimeError("cannot create cursor")
+        pool.getconn.return_value = conn
+
+        before = wrapper.query_semaphore._value
+        with pytest.raises(RuntimeError):
+            wrapper.begin_transaction()
+
+        pool.putconn.assert_called_once_with(conn)
+        assert wrapper.query_semaphore._value == before
+
+    def test_close_is_idempotent(self):
+        wrapper, pool = _make_wrapper(max_parallel_queries=2)
+        conn, _ = _mock_conn()
+        pool.getconn.return_value = conn
+
+        with wrapper.begin_transaction() as tx:
+            pass
+        tx.close()
+
+        pool.putconn.assert_called_once_with(conn), "connection returned twice"
+        assert wrapper.query_semaphore._value == 2
+
+
+# ---------------------------------------------------------------------------
+# Connection metadata must not outlive its connection (NR0003 follow-up)
+# ---------------------------------------------------------------------------
+
+class TestConnectionMetadata:
+    def test_meta_dropped_when_pool_closes_returned_connection(self):
+        wrapper, pool = _make_wrapper(max_parallel_queries=1)
+
+        def _fresh():
+            conn, _ = _mock_conn()
+            # putconn beyond minconn closes the connection instead of pooling it.
+            pool.putconn.side_effect = lambda c, **kw: setattr(c, "closed", 1)
+            return conn
+
+        for _ in range(20):
+            pool.getconn.return_value = _fresh()
+            wrapper.fetch_all("SELECT 1")
+
+        assert len(wrapper._conn_meta) <= 1, (
+            f"metadata leaked: {len(wrapper._conn_meta)} entries for a 1-connection pool"
+        )
+
+    def test_meta_kept_for_pooled_connection(self):
+        wrapper, pool = _make_wrapper()
+        conn, _ = _mock_conn()
+        pool.getconn.return_value = conn
+
+        wrapper.fetch_all("SELECT 1")
+
+        assert id(conn) in wrapper._conn_meta
+
+    def test_close_clears_metadata(self):
+        wrapper, pool = _make_wrapper()
+        conn, _ = _mock_conn()
+        pool.getconn.return_value = conn
+        wrapper.fetch_all("SELECT 1")
+
+        wrapper.close()
+
+        assert wrapper._conn_meta == {}

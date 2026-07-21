@@ -139,7 +139,18 @@ class PostgreSQLWrapper(DatabasePrototype):
             meta = self._conn_meta.get(id(conn))
             if meta is not None:
                 meta["returned"] = time.monotonic()
-        self.pool.putconn(conn)
+        try:
+            self.pool.putconn(conn)
+        finally:
+            # putconn closes the connection instead of pooling it whenever the
+            # pool already holds minconn idle ones (psycopg2/pool.py:105-122).
+            # Its metadata must go with it: entries are keyed by id(), which
+            # CPython reuses once the object is freed, so a stale "created"
+            # stamp would otherwise be inherited by an unrelated new connection
+            # and make max_lifetime discard it far too early.
+            if conn.closed:
+                with self._meta_lock:
+                    self._conn_meta.pop(id(conn), None)
 
     @contextmanager
     def _connection(self):
@@ -229,6 +240,8 @@ class PostgreSQLWrapper(DatabasePrototype):
     def close(self):
         if self.pool:
             self.pool.closeall()
+            with self._meta_lock:
+                self._conn_meta.clear()
 
     def __del__(self):
         try:
@@ -248,10 +261,22 @@ class PostgreSQLTransaction(Transaction):
         # "connection pool exhausted" under load.
         wrapper._acquire_slot()
         self._slot_held = True
+        self._closed = False
+        self.conn = None
+        self.cursor = None
         try:
             self.conn = wrapper._checkout()
             self.cursor = self.conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
         except Exception:
+            # The slot alone is not enough: if checkout succeeded and only the
+            # cursor failed, the connection is already out of the pool and
+            # nothing else will ever hand it back.
+            if self.conn is not None:
+                try:
+                    wrapper._checkin(self.conn)
+                except Exception as e:
+                    print(f"Returning connection after failed transaction start failed: {e}")
+                self.conn = None
             self._release_slot()
             raise
 
@@ -288,18 +313,44 @@ class PostgreSQLTransaction(Transaction):
         self.conn.rollback()
 
     def close(self):
+        # Idempotent: a second close would putconn the same connection twice
+        # and let two callers hold it at once.
+        if self._closed:
+            return
+        self._closed = True
         try:
-            self.cursor.close()
-            self.wrapper._checkin(self.conn)
+            if self.cursor is not None:
+                self.cursor.close()
         finally:
-            self._release_slot()
+            # cursor.close() failing must not strand the connection outside the
+            # pool while its slot goes back -- that leaves more permits than
+            # connections and revives "connection pool exhausted".
+            try:
+                if self.conn is not None:
+                    self.wrapper._checkin(self.conn)
+                    self.conn = None
+            finally:
+                self._release_slot()
 
     def __enter__(self):
         return self
 
     def __exit__(self, exc_type, exc_val, traceback):
-        if exc_type:
-            self.rollback()
-        else:
-            self.commit()
-        self.close()
+        try:
+            if exc_type:
+                self.rollback()
+            else:
+                try:
+                    self.commit()
+                except Exception:
+                    # commit can fail (serialization failure, lost server) and
+                    # must not skip close(): the connection would never return
+                    # to the pool. Roll back first so it goes back idle rather
+                    # than inside an aborted transaction.
+                    try:
+                        self.rollback()
+                    except Exception as e:
+                        print(f"Rollback after failed commit failed: {e}")
+                    raise
+        finally:
+            self.close()

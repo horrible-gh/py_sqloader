@@ -213,7 +213,17 @@ class SQLiteTransaction:
             check_same_thread=False
         )
         self.conn.row_factory = sqlite3.Row
-        self.cursor = self.conn.cursor()
+        self._closed = False
+        self.cursor = None
+        try:
+            self.cursor = self.conn.cursor()
+        except Exception:
+            # The connection is already open; nothing else would close it.
+            try:
+                self.conn.close()
+            except Exception as e:
+                print(f"Closing connection after failed transaction start failed: {e}")
+            raise
 
     def execute(self, query, params=None):
         if params is None:
@@ -244,16 +254,34 @@ class SQLiteTransaction:
         self.conn.rollback()
 
     def close(self):
-        self.cursor.close()
-        self.conn.close()
+        if self._closed:
+            return
+        self._closed = True
+        try:
+            if self.cursor is not None:
+                self.cursor.close()
+        finally:
+            # cursor.close() failing must not leave the file handle open.
+            self.conn.close()
 
     def __enter__(self):
         return self
 
     def __exit__(self, exc_type, exc_val, traceback):
         # Rollback on exception, commit otherwise
-        if exc_type:
-            self.rollback()
-        else:
-            self.commit()
-        self.close()
+        try:
+            if exc_type:
+                self.rollback()
+            else:
+                try:
+                    self.commit()
+                except Exception:
+                    # A failing commit must still reach close(), or the
+                    # connection stays open until the process exits.
+                    try:
+                        self.rollback()
+                    except Exception as e:
+                        print(f"Rollback after failed commit failed: {e}")
+                    raise
+        finally:
+            self.close()
