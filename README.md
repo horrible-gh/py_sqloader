@@ -37,7 +37,7 @@ pip install sqloader[all]
 - Transaction context manager with automatic commit / rollback
 - Async support: `asyncpg`, `aiomysql`, `aiosqlite`
 - Async integrated execution: `await sqloader.async_execute()`, `await sqloader.async_fetchone()`, `await sqloader.async_fetchall()`
-- **Query file sync**: copy `.json`/`.sql` files between DB directories (`sync()`, `sync_from` config, CLI)
+- **Query file sync**: copy `.json`/`.sql` files between DB directories (`sync()`, `sync_from` config, CLI), with optional on-the-fly dialect conversion of `.sql` files (`sync(convert=True)`, `--convert`)
 - **Dialect conversion**: rule-based translation of SQL between SQLite, MySQL/MariaDB and PostgreSQL (`convert_sql()`, `DialectConverter`, CLI)
 
 ---
@@ -310,6 +310,12 @@ result = sq.sync("sqlite3", "mysql")
 
 # Copy sqlite3 → postgresql (overwrite existing files)
 result = sq.sync("sqlite3", "postgresql", overwrite=True)
+
+# Copy AND translate .sql dialect while syncing (see "Dialect Conversion" below).
+# .sql file contents are rewritten sqlite3 → postgresql; .json files are copied
+# verbatim. result["warnings"] lists constructs with no safe automatic equivalent.
+result = sq.sync("sqlite3", "postgresql", overwrite=True, convert=True)
+# {"copied": [...], "skipped": [...], "warnings": ["001_schema.sql: ..."]}
 ```
 
 ### Config-based auto sync (`database_init`)
@@ -339,6 +345,10 @@ python -m sqloader sync --from sqlite3 --to mysql --path res/sql/sqloader
 
 # Overwrite existing files
 python -m sqloader sync --from sqlite3 --to postgresql --overwrite --path res/sql/sqloader
+
+# Sync AND translate .sql dialect in one step (.json copied verbatim);
+# converter warnings are printed to stderr
+python -m sqloader sync --from sqlite3 --to postgresql --convert --overwrite --path res/sql/sqloader
 ```
 
 Output:

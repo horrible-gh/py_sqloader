@@ -108,8 +108,10 @@ class TestSqliteToPostgresql:
         assert out.rstrip().endswith("ON CONFLICT DO NOTHING;")
 
     def test_datetime_now(self):
+        # Parity with FlowGate: datetime('now') maps to a to_char() expression
+        # that reproduces SQLite's emitted 'YYYY-MM-DD HH:MM:SS' text.
         out = convert_sql("INSERT INTO t (ts) VALUES (datetime('now'))", "sqlite", "postgresql")
-        assert "CURRENT_TIMESTAMP" in out
+        assert "to_char(now() AT TIME ZONE 'UTC'" in out
         assert "datetime('now')" not in out
 
     def test_json_extract_becomes_arrow_operator(self):
