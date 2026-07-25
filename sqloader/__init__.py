@@ -26,3 +26,24 @@ try:
     from .sqlite3_async import AsyncSQLiteWrapper
 except ImportError:
     AsyncSQLiteWrapper = None
+
+__all__ = [
+    # core
+    "SQLoader",
+    "DatabaseMigrator",
+    "DatabasePrototype",
+    "AsyncDatabasePrototype",
+    "AsyncTransaction",
+    # dialect conversion
+    "DialectConverter",
+    "convert_sql",
+    "convert_placeholders",
+    "normalize_dialect",
+    # backend wrappers
+    "SQLiteWrapper",
+    "MySqlWrapper",
+    "PostgreSQLWrapper",
+    "AsyncSQLiteWrapper",
+    "AsyncMySqlWrapper",
+    "AsyncPostgreSQLWrapper",
+]

@@ -57,21 +57,26 @@ def cmd_sync(args):
     sq = SQLoader(path)
 
     try:
-        result = sq.sync(args.from_db, args.to, overwrite=args.overwrite)
+        result = sq.sync(args.from_db, args.to, overwrite=args.overwrite,
+                         convert=args.convert)
     except FileNotFoundError as e:
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
 
     copied = result["copied"]
     skipped = result["skipped"]
+    warnings = result.get("warnings", [])
 
-    print(f"Synced {args.from_db} -> {args.to}")
-    print(f"Copied: {len(copied)} files")
+    mode = "converted" if args.convert else "copied"
+    print(f"Synced {args.from_db} -> {args.to}" + (" (with dialect conversion)" if args.convert else ""))
+    print(f"{mode.capitalize()}: {len(copied)} files")
     for f in copied:
         print(f"  - {f}")
     print(f"Skipped: {len(skipped)} files")
     for f in skipped:
         print(f"  - {f}")
+    for w in warnings:
+        print(f"  WARN: {w}", file=sys.stderr)
 
 
 def main():
@@ -91,6 +96,9 @@ def main():
                              help="SQL directory path (default: current directory)")
     sync_parser.add_argument("--overwrite", action="store_true",
                              help="Overwrite existing files")
+    sync_parser.add_argument("--convert", action="store_true",
+                             help="Convert .sql file contents between the --from and "
+                                  "--to dialects while syncing (.json copied verbatim)")
     sync_parser.set_defaults(func=cmd_sync)
 
     convert_parser = subparsers.add_parser(

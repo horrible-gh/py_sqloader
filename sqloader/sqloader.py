@@ -148,14 +148,24 @@ class SQLoader:
         sql = self.load_sql(file, query_name)
         return await self.async_db.fetch_all(sql, params)
 
-    def sync(self, from_db: str, to_db: str, overwrite: bool = False):
+    def sync(self, from_db: str, to_db: str, overwrite: bool = False, convert: bool = False):
         """
         Copy query files from the from_db directory to the to_db directory.
 
         :param from_db: Source DB type ("sqlite3", "mysql", "postgresql")
         :param to_db: Target DB type
         :param overwrite: If True, overwrite existing files; if False, skip them (default: False)
-        :return: { "copied": [...], "skipped": [...] }
+        :param convert: If True, rewrite ``.sql`` file contents from the ``from_db``
+                        dialect to the ``to_db`` dialect via
+                        :class:`sqloader.dialect.DialectConverter` while copying.
+                        ``.json`` files are copied verbatim (they typically reference
+                        ``.sql`` files by name, which are themselves converted).
+                        Off by default, so the historical behaviour -- a byte-for-byte
+                        copy -- is preserved. (default: False)
+        :return: ``{ "copied": [...], "skipped": [...], "warnings": [...] }``.
+                 ``warnings`` holds converter notes about constructs that had no safe
+                 automatic equivalent; it is always an empty list when ``convert`` is
+                 False.
         """
         from_dir = os.path.join(self.sql_dir, from_db)
         to_dir = os.path.join(self.sql_dir, to_db)
@@ -163,8 +173,16 @@ class SQLoader:
         if not os.path.isdir(from_dir):
             raise FileNotFoundError(f"Source directory not found: {from_dir}")
 
+        converter = None
+        if convert:
+            # Imported lazily so the base loader has no hard dependency on the
+            # dialect module (and its sqlparse import) unless conversion is asked for.
+            from .dialect import DialectConverter
+            converter = DialectConverter(from_db, to_db)
+
         copied = []
         skipped = []
+        warnings = []
 
         for root, _, files in os.walk(from_dir):
             for filename in files:
@@ -180,7 +198,18 @@ class SQLoader:
                     continue
 
                 os.makedirs(os.path.dirname(dst_path), exist_ok=True)
-                shutil.copy2(src_path, dst_path)
+
+                if converter is not None and filename.endswith(".sql"):
+                    with open(src_path, "r", encoding="utf-8-sig") as f:
+                        source_sql = f.read()
+                    converted = converter.convert(source_sql)
+                    for note in converter.warnings:
+                        warnings.append(f"{rel_path}: {note}")
+                    with open(dst_path, "w", encoding="utf-8", newline="") as f:
+                        f.write(converted)
+                else:
+                    shutil.copy2(src_path, dst_path)
+
                 copied.append(rel_path)
 
-        return {"copied": copied, "skipped": skipped}
+        return {"copied": copied, "skipped": skipped, "warnings": warnings}
